@@ -3,10 +3,18 @@
 
 struct Progress
 {
-    unsigned finished;
     unsigned width;
     unsigned height;
+    unsigned finished;
 };
+
+#if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
+#include "ProgressBarWin32.h"
+
+#else
+
+#include <pthread.h>
+#endif
 
 void update_progress(Progress* prog)
 {
@@ -29,7 +37,7 @@ void update_progress(Progress* prog)
 
         if(finished_pct == 1.0)
         {
-            printf(" DONE!");
+            printf(" DONE!\n");
             break;
         }
         printf("\r");

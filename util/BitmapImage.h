@@ -2,14 +2,16 @@
 #define UTIL_BITMAP_IMAGE_H
 
 #pragma pack(1)
-typedef struct BITMAPINFOHEADER {
+struct BitmapInfoHeader 
+{
     uint16_t id;
     uint32_t size;
     uint32_t reserved;
     uint32_t offset;
-} BitmapInfoHeader;
+};
 
-typedef struct BITMAPDIBHEADER {
+struct BitmapDIBHeader
+{
     uint32_t header_sz;
     uint32_t width;
     uint32_t height;
@@ -21,7 +23,7 @@ typedef struct BITMAPDIBHEADER {
     uint32_t height_print;
     uint32_t num_palette_colors;
     uint32_t num_important_colors;
-} BitmapDIBHeader;
+};
 #pragma pack()
 
 void write_bmp_to_file(const char*    file_name,

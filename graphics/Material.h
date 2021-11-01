@@ -18,7 +18,7 @@ Vector3 random_in_unit_sphere()
 {
     Vector3 point;
     do {
-        point = 2.0 * Vector3(drand48(), drand48(), drand48()) - Vector3(1.0, 1.0, 1.0);
+        point = 2.0 * Vector3(float(rand())/float(RAND_MAX), float(rand())/float(RAND_MAX), float(rand())/float(RAND_MAX)) - Vector3(1.0, 1.0, 1.0);
     } while(point.length_squared() >= 1.0f);
     return point;
 }

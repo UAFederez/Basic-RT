@@ -1,2 +1,2 @@
 all: main.cpp
-	g++ $^ -Wall -Wextra -Wpedantic -g -lpthread -O3
+	g++ $^ -Wall -Wextra -Wpedantic -g -O3

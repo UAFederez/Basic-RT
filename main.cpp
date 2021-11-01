@@ -5,6 +5,7 @@
 #include <vector>
 #include <thread>
 #include <cstring>
+#include <cfloat>
 
 #include "util/ProgressBar.h"
 #include "util/BitmapImage.h"
@@ -22,7 +23,7 @@
 Vector3 color(const Ray& r, const World& world, int depth)
 {
     HitRecord rec = {};
-    if(world.hit_anything(r, 1e-3, MAXFLOAT, rec))
+    if(world.hit_anything(r, 1e-3, FLT_MAX, rec))
     {
         Ray     scattered;
         Vector3 attenuation;
@@ -42,7 +43,7 @@ int main()
     srand(time(0));
     const int IMAGE_WIDTH  = 1280;
     const int IMAGE_HEIGHT = 720;
-    const int NUM_SAMPLES  = 150;
+    const int NUM_SAMPLES  = 1;
     const float NS_DENOM   = 1 / float(NUM_SAMPLES);
 
     std::vector<uint8_t>   pixels;
@@ -94,16 +95,16 @@ int main()
         for(int i = 0; i < (9 + j) * (j + 1); i++)
         {
             Material* mat;
-            if(drand48() >= 0.75)
+            if(float(rand())/float(RAND_MAX) >= 0.75)
             {
-                mat = new Lambertian(Vector3(0.5 + drand48() * 0.5, 
-                                             0.5 + drand48() * 0.5, 
-                                             0.5 + drand48() * 0.5));
+                mat = new Lambertian(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
+                                             0.5 + float(rand())/float(RAND_MAX) * 0.5, 
+                                             0.5 + float(rand())/float(RAND_MAX) * 0.5));
             } else
             {
-                mat = new Metal(Vector3(0.5 + drand48() * 0.5, 
-                                        0.5 + drand48() * 0.5, 
-                                        0.5 + drand48() * 0.5),
+                mat = new Metal(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
+                                        0.5 + float(rand())/float(RAND_MAX) * 0.5, 
+                                        0.5 + float(rand())/float(RAND_MAX) * 0.5),
                                         0.1);
             }
             const float theta  = (360 / ((9 + j) * (j + 1))) * i;
@@ -133,7 +134,8 @@ int main()
     progress.height   = IMAGE_HEIGHT;
     progress.finished = 0;
 
-    std::thread progress_bar_thread(update_progress, &progress);
+    ThreadInfo thread_info;
+    create_thread(&progress, &thread_info);
 
     for( int row = 0; row < IMAGE_HEIGHT; row++ )
     {
@@ -142,8 +144,8 @@ int main()
             Vector3 pixel_color = {};
             for(int i = 0; i < NUM_SAMPLES; i++)
             {
-                float u = float(col + drand48()) / float(IMAGE_WIDTH);
-                float v = float(row + drand48()) / float(IMAGE_HEIGHT);
+                float u = float(col + float(rand())/float(RAND_MAX)) / float(IMAGE_WIDTH);
+                float v = float(row + float(rand())/float(RAND_MAX)) / float(IMAGE_HEIGHT);
 
                 Ray r  = main_camera.get_ray(u, v);
                 pixel_color += color(r, scene, 0);
@@ -161,10 +163,11 @@ int main()
             progress.finished++;
         }
     }
-    progress_bar_thread.join();
+    join_thread(&thread_info);
 
     write_bmp_to_file("output.bmp", pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
     // Cleanup
     for(Material* mat : materials)
         delete mat;
+    return 0;
 }
