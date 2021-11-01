@@ -42,7 +42,7 @@ int main()
     srand(time(0));
     const int IMAGE_WIDTH  = 1280;
     const int IMAGE_HEIGHT = 720;
-    const int NUM_SAMPLES  = 1;
+    const int NUM_SAMPLES  = 150;
     const float NS_DENOM   = 1 / float(NUM_SAMPLES);
 
     std::vector<uint8_t>   pixels;
