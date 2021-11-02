@@ -68,13 +68,6 @@ public:
     float   fuzziness;
 };
 
-float schlick(float cosine, float ref_idx)
-{
-    float r0 = (1 - ref_idx) / (1 + ref_idx);
-    r0 = r0 * r0;
-    return r0 + (1-r0) * pow((1-cosine), 5);
-}
-
 Vector3 refract(const Vector3& incident,
                 const Vector3& normal,
                 const float ior)
