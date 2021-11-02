@@ -62,6 +62,12 @@ int create_render_threads(ThreadImageInfo* jobs,
     return 0;
 }
 
+void join_threads(ThreadHandle* thread_handles, const uint32_t NUM_THREADS)
+{
+    for(uint32_t i = 0; i < NUM_THREADS; i++)
+        WaitForSingleObject(thread_handles[i].handle, INFINITE);
+}
+
 #else
 #include <pthread.h>
 
@@ -95,8 +101,7 @@ int create_render_threads(ThreadImageInfo* jobs,
     return 0;
 }
 
-void join_threads(ThreadHandle*  thread_handles,
-                  const uint32_t NUM_THREADS)
+void join_threads(ThreadHandle* thread_handles, const uint32_t NUM_THREADS)
 {
     for(uint32_t i = 0; i < NUM_THREADS; i++)
         pthread_join(thread_handles[i].handle, NULL);

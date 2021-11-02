@@ -8,6 +8,7 @@
 #include <cfloat>
 #include <random>
 #include <chrono>
+#include <iomanip>
 
 #include "util/ProgressBar.h"
 #include "util/BitmapImage.h"
@@ -124,17 +125,17 @@ int main()
 
     // Camera description
     const float view_rot = 90.0f;
-    const float dist     = 16.0f; // 8
+    const float dist     = 12.0f; // 8
     Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, // 3 
                                sin(view_rot * M_PI / 180) * dist), 
-                       Vector3( 0,0.5, 0),
+                       Vector3( 0,1.0, 0),
                        Vector3( 0,1.0, 0),
                        30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Image rendering description
     const uint32_t MAX_THREADS        = 12; 
-    const uint32_t NUM_SAMPLES        = 72;
+    const uint32_t NUM_SAMPLES        = 180;
     const float    NS_DENOM           = 1 / float(NUM_SAMPLES);
 
     const uint32_t NUM_THREADS        = std::min<uint32_t>(MAX_THREADS, NUM_SAMPLES);
@@ -186,12 +187,13 @@ int main()
         printf("[ERROR] Could not initialize all the threads. Exiting now...\n");
         return 0;
     }
-    printf("[SUCCESS] All threads were successfully initialized.\n");
+    std::cout << "[SUCCESS] All threads were successfully initialized.\n";
 
-    const unsigned NUM_BAR_CHARS = 80;
+    const unsigned NUM_BAR_CHARS = 81;
     char  progress_bar_chars[NUM_BAR_CHARS];
 
-    memset(progress_bar_chars, ' ', NUM_BAR_CHARS);
+    memset(progress_bar_chars, ' ', NUM_BAR_CHARS - 1);
+    progress_bar_chars[NUM_BAR_CHARS - 1] = '\0';
     while(true)
     {
         uint32_t total_finished = 0;
@@ -207,11 +209,14 @@ int main()
         int nbars = pct * NUM_BAR_CHARS;
 
         memset(progress_bar_chars, '#', nbars);
-        printf("Rendering image... [%s] [%.2f]\r", progress_bar_chars, pct * 100.0f);
+        std::cout << "Rendering image... [" << progress_bar_chars << "] "
+                  << std::fixed
+                  << std::setprecision(2)
+                  << "[" << pct * 100.0f  << "%]\r";
 
-        if(pct == 1.0)
+        if(total_finished == total_to_do)
         {
-            printf("\n");
+            std::cout << '\n';
             break;
         }
     }
@@ -226,13 +231,15 @@ int main()
     for(const ThreadImageInfo& info : image_info)
     {
         for(uint32_t i = 0; i < info.pixels.size(); i++)
-           total_pixels[i] += info.pixels[i] * NS_DENOM;
+           total_pixels[i] += info.pixels[i];
     }
 
     // Prepare the image data
     for(Vector3& pixel : total_pixels)
     {
-        pixel = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
+        pixel *= NS_DENOM;
+        pixel  = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
+
         image_pixels.push_back(uint8_t(255.99 * pixel.z()));
         image_pixels.push_back(uint8_t(255.99 * pixel.y()));
         image_pixels.push_back(uint8_t(255.99 * pixel.x()));
