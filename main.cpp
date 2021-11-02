@@ -37,7 +37,6 @@ Vector3 color(const Ray& r, const World& world, int depth)
     float t = 0.5 * (unit_dir.y() + 1.0f);
     return (1.0 - t) * Vector3(1.0, 1.0, 1.0) + t * Vector3(0.5, 0.7, 1.0);
 }
-
 int main()
 {
     srand(time(0));
@@ -51,62 +50,36 @@ int main()
 
     pixels.reserve(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-    materials.push_back(new Metal(Vector3(0.9,0.8,0.8), 0.01));
-    materials.push_back(new Metal(Vector3(0.8,0.8,0.9), 0.0));
-
     // Scene description
     World scene = {};
-    scene.objects.push_back(new Plane(Vector3(0.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), materials[0]));
+    scene.objects.push_back(new Plane (Vector3(0.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), 
+                                       new Metal(Vector3(0.8, 0.8, 0.8), 0.0)));
+    scene.objects.push_back(new Plane (Vector3(0.0, 0.0,-4), Vector3(0.0, 0.0, 1.0), 
+                                       new Metal(Vector3(0.8, 0.8, 0.8), 0.05)));
+    scene.objects.push_back(new Sphere(Vector3( 0.0, 1.5, 0.0), 1.5, 
+                                       new Dielectric(1.5)));
 
-    const float half_side = 0.75;
-    const float half_top  = 1.5;
-    scene.objects.push_back(new Triangle(Vector3(-half_side, half_top, half_side), 
-                                         Vector3( half_side, half_top, half_side), 
-                                         Vector3(0, half_top*2, 0), 
-                                         materials[1]));
-
-    scene.objects.push_back(new Triangle(Vector3( half_side, half_top, half_side), 
-                                         Vector3(half_side, half_top,-half_side), 
-                                         Vector3(0, half_top*2, 0), 
-                                         materials[1]));
-
-    scene.objects.push_back(new Triangle(Vector3(-half_side, half_top,-half_side), 
-                                         Vector3(-half_side, half_top, half_side), 
-                                         Vector3(0, half_top*2, 0), 
-                                         materials[1]));
-
-    scene.objects.push_back(new Triangle(Vector3( 0, 0, 0), 
-                                         Vector3( half_side, half_top, half_side), 
-                                         Vector3(-half_side, half_top, half_side), 
-                                         materials[1]));
-
-    scene.objects.push_back(new Triangle(Vector3( 0, 0, 0), 
-                                         Vector3( half_side, half_top,-half_side), 
-                                         Vector3(half_side, half_top, half_side), 
-                                         materials[1]));
-
-    scene.objects.push_back(new Triangle(Vector3( 0, 0, 0), 
-                                         Vector3(-half_side, half_top, half_side), 
-                                         Vector3(-half_side, half_top,-half_side), 
-                                         materials[1]));
     float ring_radius = 2.0f;
     for(int j = 0; j < 4; j++)
     {
         for(int i = 0; i < (9 + j) * (j + 1); i++)
         {
             Material* mat;
-            if(float(rand())/float(RAND_MAX) >= 0.75)
+            float mat_prob = float(rand()) / float(RAND_MAX);
+            if(mat_prob < 0.40)
             {
                 mat = new Lambertian(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
                                              0.5 + float(rand())/float(RAND_MAX) * 0.5, 
                                              0.5 + float(rand())/float(RAND_MAX) * 0.5));
-            } else
+            } else if(mat_prob < 0.80)
             {
                 mat = new Metal(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
                                         0.5 + float(rand())/float(RAND_MAX) * 0.5, 
                                         0.5 + float(rand())/float(RAND_MAX) * 0.5),
                                         0.1);
-            }
+            } else
+                mat = new Dielectric(1.5);
+
             const float theta  = (360 / ((9 + j) * (j + 1))) * i;
             const float x_pos = cos(theta * M_PI / 180.0f) * ring_radius;
             const float z_pos = sin(theta * M_PI / 180.0f) * ring_radius;
@@ -119,12 +92,12 @@ int main()
     }
 
     // Camera description
-    const float view_rot = 45.0f;
+    const float view_rot = 90.0f;
     const float dist     = 8.0f;
-    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 5, 
+    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, 
                                sin(view_rot * M_PI / 180) * dist), 
-                       Vector3( 0, 1, 0),
-                       Vector3( 0, 1, 0),
+                       Vector3( 0,1.0, 0),
+                       Vector3( 0,1.0, 0),
                        30,
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
@@ -163,6 +136,7 @@ int main()
             progress.finished++;
         }
     }
+
     join_thread(&thread_info);
 
     write_bmp_to_file("output.bmp", pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
