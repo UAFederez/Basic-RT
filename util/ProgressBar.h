@@ -12,8 +12,8 @@ struct Progress
 #include "ProgressBarWin32.h"
 
 #else
+#include "ProgressBarLinux.h"
 
-#include <pthread.h>
 #endif
 
 void update_progress(Progress* prog)
