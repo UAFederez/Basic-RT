@@ -7,7 +7,6 @@ class Sphere : public Geometry {
 public:
     Sphere() {}
 
-    // TODO: address memory leaks on Material
     Sphere(const Vector3& center, const float radius, Material* material):
         center(center), radius(radius), material(material) {}
 

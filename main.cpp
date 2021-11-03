@@ -168,7 +168,6 @@ int main()
 
     image_pixels.reserve(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-    // TODO: assuming for now that the image can be split up into square tiles evenly
     const uint32_t WIDTH_IN_TILES  = IMAGE_WIDTH  / TILE_WIDTH;
     const uint32_t HEIGHT_IN_TILES = IMAGE_HEIGHT / TILE_HEIGHT;
     const uint32_t ADDITIONAL_H    = IMAGE_HEIGHT % TILE_HEIGHT;
