@@ -106,7 +106,7 @@ public:
             ior = 1.0 / rel_ior;
         }
 
-        Vector3 refracted = refract(normalize(ray_in.direction()), nrm, ior);
+        Vector3 refracted = refract(-ray_in.direction(), nrm, ior);
         Vector3 reflected = reflect(ray_in.direction(), rec.normal);
         attenuation = Vector3(1.0, 1.0, 1.0);
 
