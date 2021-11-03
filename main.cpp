@@ -42,10 +42,8 @@ Vector3 color(const Ray& r, const World& world, int depth)
     return (1.0 - t) * Vector3(1.0, 1.0, 1.0) + t * Vector3(0.5, 0.7, 1.0);
 }
 
-void* thread_render_image(void* info_param)
+void thread_render_image(ThreadImageInfo* info)
 {
-    ThreadImageInfo* info = (ThreadImageInfo*) info_param;
-
     for( uint32_t row = 0; row < info->image_height; row++ )
     {
         for( uint32_t col = 0; col < info->image_width; col++ )
@@ -63,7 +61,6 @@ void* thread_render_image(void* info_param)
             info->finished_pixels++;
         }
     }
-    return NULL;
 }
 
 int main()
@@ -135,8 +132,9 @@ int main()
                        30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
+    // Image rendering description
     const uint32_t MAX_THREADS        = 12; 
-    const uint32_t NUM_SAMPLES        = 12;
+    const uint32_t NUM_SAMPLES        = 72;
     const float    NS_DENOM           = 1 / float(NUM_SAMPLES);
 
     const uint32_t NUM_THREADS        = std::min<uint32_t>(MAX_THREADS, NUM_SAMPLES);
@@ -149,8 +147,6 @@ int main()
     printf("Additional samples: %d\n", NUM_SAMPLES % NUM_THREADS);
     printf("---------------------------\n");
 
-    ThreadImageInfo image_info[NUM_THREADS];
-    pthread_t threads[NUM_THREADS];
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -159,26 +155,39 @@ int main()
     
     auto begin = high_resolution_clock::now();
 
+    ThreadHandle    thread_handles[NUM_THREADS];
+    ThreadImageInfo image_info[NUM_THREADS];
+
+    // If NUM_SAMPLES is not divisible by NUM_THREADS, split the remaining
+    // with 1 for each of the threads
+    uint32_t additional_samples = NUM_SAMPLES % NUM_THREADS;
+
+    // Initialize the jobs to do for each thread
     for(uint32_t i = 0; i < NUM_THREADS; i++)
     {
-        image_info[i].thread_id       = i;
+        image_info[i].thread_id       = 0;
         image_info[i].num_samples     = SAMPLES_PER_THREAD;
         image_info[i].image_width     = IMAGE_WIDTH;
         image_info[i].image_height    = IMAGE_HEIGHT;
         image_info[i].finished_pixels = 0;
+
         image_info[i].scene.camera    = &main_camera;
         image_info[i].scene.world     = &scene;
 
-        if(i == NUM_THREADS - 1)
-            image_info[i].num_samples += NUM_SAMPLES % NUM_THREADS;
-
-        if(pthread_create(&threads[i],              // Thread handle
-                          NULL,                     // Security options (default)
-                          thread_render_image,      // Thread function
-                          (void*) &image_info[i]))  // Parameter
-            printf("[ERROR] Could not create thread #%d\n", i);
+        if(additional_samples != 0)
+        {
+            image_info[i].num_samples++;
+            additional_samples--;
+        }
     }
-    
+
+    if(create_render_threads(image_info, thread_handles, NUM_THREADS))
+    {
+        printf("[ERROR] Could not initialize all the threads. Exiting now...\n");
+        return 0;
+    }
+    printf("[SUCCESS] All threads were successfully initialized.\n");
+
     const unsigned NUM_BAR_CHARS = 80;
     char  progress_bar_chars[NUM_BAR_CHARS];
 
@@ -206,9 +215,7 @@ int main()
             break;
         }
     }
-
-    for(uint32_t i = 0; i < NUM_THREADS; i++)
-        pthread_join(threads[i], NULL);
+    join_threads(thread_handles, NUM_THREADS);
 
     auto end     = high_resolution_clock::now();
     auto elapsed = duration<double>(end - begin).count();
