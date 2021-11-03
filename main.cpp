@@ -91,57 +91,8 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
     return 0;
 }
 
-void* thread_render_image_tiles(void* img_param)
-{
-    ImageRenderInfo* image = (ImageRenderInfo*) img_param;
-
-    while(true)
-    {
-        SectionRenderInfo* current_section = NULL;
-
-        // Check if queue is not empty,
-        pthread_mutex_lock(&image->lock);
-
-        if(image->num_finished_sections != image->sections.size())
-            current_section = &image->sections[image->num_finished_sections++];
-
-        pthread_mutex_unlock(&image->lock);
-
-        // color the current section of the image
-        if(current_section != NULL)
-        {
-            const uint32_t bounds_x = current_section->tile_x + current_section->tile_width;
-            const uint32_t bounds_y = current_section->tile_y + current_section->tile_height;
-            const float NS_DENOM    = 1 / float(image->num_samples);
-
-            for(uint32_t y = current_section->tile_y; y < bounds_y; y++ )
-            {
-                for(uint32_t x = current_section->tile_x; x < bounds_x; x++ )
-                {
-                    Vector3 pixel = {};
-                    for(uint32_t i = 0; i < image->num_samples; i++)
-                    {
-                        float u = float(x + random_float()) / float(image->image_width);
-                        float v = float(y + random_float()) / float(image->image_height);
-
-                        Ray r  = image->camera->get_ray(u, v);
-                        pixel += color(r, *image->world, 0);
-                    }
-                    pixel *= NS_DENOM;
-                    image->pixels[y * image->image_width + x] = pixel; 
-                }
-            }
-            current_section = NULL;
-        } else
-            break;
-
-    }
-    return NULL;
-}
-
 int main()
 {
-    srand(time(0));
     // Materials
     std::vector<Material*> materials;
     materials.push_back(new Metal(Vector3(0.9, 0.8, 0.7), 0.0 ));
