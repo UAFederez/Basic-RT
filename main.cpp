@@ -95,7 +95,7 @@ int main()
 {
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Vector3(0.9, 0.8, 0.7), 0.0 ));
+    materials.push_back(new Metal(Vector3(0.8, 0.7, 0.6), 0.0 ));
     materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.05));
     materials.push_back(new Dielectric(1.5));
 
@@ -109,10 +109,10 @@ int main()
                                       Vector3(0.0, 0.0,  1.0), 
                                       materials[1]));
 
-    scene.objects.push_back(new Sphere(Vector3( 0.0, 2.0, 0.0), 2.0, 
+    scene.objects.push_back(new Sphere(Vector3(0.0, 1.5, 0.0), 1.5, 
                                        materials[2]));
 
-    float ring_radius = 3.0f;
+    float ring_radius = 2.0f;
     for(int j = 0; j < 4; j++)
     {
         for(int i = 0; i < (8 * (j + 1)); i++)
@@ -151,16 +151,16 @@ int main()
 
     // Camera description
     const float view_rot = 90.0f;
-    const float dist     = 14.0f; // 8
+    const float dist     = 12.0f; // 8
     Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, // 3 
                                sin(view_rot * M_PI / 180) * dist), 
+                       Vector3( 0,0.0, 0),
                        Vector3( 0,1.0, 0),
-                       Vector3( 0,1.0, 0),
-                       45.0f, // 30
+                       30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
-    const uint32_t MAX_THREADS  = 12; 
+    const uint32_t MAX_THREADS  = 11; 
     const uint32_t NUM_SAMPLES  = 120;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 

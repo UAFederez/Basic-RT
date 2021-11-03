@@ -19,7 +19,6 @@ struct ImageRenderInfo
     std::vector<SectionRenderInfo> sections;
     std::vector<Vector3> pixels;
 
-    pthread_mutex_t lock;
     uint32_t num_finished_sections;
 
     uint32_t image_width;
@@ -43,7 +42,7 @@ struct ThreadHandle
 struct RenderThreadControl
 {
     ImageRenderInfo image;
-    pthread_mutex_t lock;
+    HANDLE lock;
 };
 
 DWORD WINAPI win32_render_tiles(LPVOID param)
