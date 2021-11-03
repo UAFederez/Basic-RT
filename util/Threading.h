@@ -16,16 +16,26 @@ struct ThreadImageInfo
 {
     uint32_t thread_id;
     uint32_t num_samples;
+
+    uint32_t tile_width;
+    uint32_t tile_height;
+    uint32_t tile_x;
+    uint32_t tile_y;
+
     uint32_t image_width;
     uint32_t image_height;
     uint32_t finished_pixels;
-    std::vector<Vector3> pixels;
+
+    std::vector<Vector3>* buffer;
+    std::vector<Vector3>  pixels;
 
     SceneInfo  scene;
 };
 
 // TODO: may be parameterized but left as is for now
-void thread_render_image(ThreadImageInfo* job);
+void thread_render_image(ThreadImageInfo* job)
+{
+}
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #include <windows.h>
