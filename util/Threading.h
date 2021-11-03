@@ -12,7 +12,7 @@ struct SceneInfo
     World*  world;
 };
 
-struct WorkerInfo
+struct ThreadImageInfo
 {
     uint32_t thread_id;
     uint32_t num_samples;

@@ -1,6 +1,7 @@
 #ifndef GRAPHICS_MATERIAL_H
 #define GRAPHICS_MATERIAL_H
 
+#include "../util/General.h"
 #include "../math/Vector3.h"
 #include "../math/Ray.h"
 
@@ -18,7 +19,9 @@ Vector3 random_in_unit_sphere()
 {
     Vector3 point;
     do {
-        point = 2.0 * Vector3(float(rand())/float(RAND_MAX), float(rand())/float(RAND_MAX), float(rand())/float(RAND_MAX)) - Vector3(1.0, 1.0, 1.0);
+        point = 2.0 * Vector3(random_float(), 
+                              random_float(), 
+                              random_float()) - Vector3(1.0, 1.0, 1.0);
     } while(point.length_squared() >= 1.0f);
     return point;
 }

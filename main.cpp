@@ -6,12 +6,13 @@
 #include <thread>
 #include <cstring>
 #include <cfloat>
-#include <time.h>
-#include <sys/time.h>
+#include <random>
+#include <chrono>
 
 #include "util/ProgressBar.h"
 #include "util/BitmapImage.h"
 #include "util/Threading.h"
+#include "util/General.h"
 
 #include "math/Vector3.h"
 #include "math/Ray.h"
@@ -41,9 +42,9 @@ Vector3 color(const Ray& r, const World& world, int depth)
     return (1.0 - t) * Vector3(1.0, 1.0, 1.0) + t * Vector3(0.5, 0.7, 1.0);
 }
 
-void* process_thread_work(void* info_param)
+void* thread_render_image(void* info_param)
 {
-    WorkerInfo* info = (WorkerInfo*) info_param;
+    ThreadImageInfo* info = (ThreadImageInfo*) info_param;
 
     for( uint32_t row = 0; row < info->image_height; row++ )
     {
@@ -52,8 +53,8 @@ void* process_thread_work(void* info_param)
             Vector3 pixel_color = {};
             for(uint32_t i = 0; i < info->num_samples; i++)
             {
-                float u = float(col + float(rand())/float(RAND_MAX)) / float(info->image_width);
-                float v = float(row + float(rand())/float(RAND_MAX)) / float(info->image_height);
+                float u = float(col + random_float()) / float(info->image_width);
+                float v = float(row + random_float()) / float(info->image_height);
 
                 Ray r  = info->scene.camera->get_ray(u, v);
                 pixel_color += color(r, *info->scene.world, 0);
@@ -67,123 +68,137 @@ void* process_thread_work(void* info_param)
 
 int main()
 {
-
-    srand(time(0));
     const int IMAGE_WIDTH  = 1280;
     const int IMAGE_HEIGHT = 720;
-    const int NUM_SAMPLES  = 12;
-    const float NS_DENOM   = 1 / float(NUM_SAMPLES);
 
-    std::vector<uint8_t>   pixels;
+    std::vector<uint8_t>   image_pixels;
     std::vector<Material*> materials;
 
-    pixels.reserve(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
+    image_pixels.reserve(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
 
-    // Scene description
+    // Materials
+    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.0 ));
+    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.05));
+    materials.push_back(new Dielectric(1.5));
+
+    // Scene objects
     World scene = {};
-    scene.objects.push_back(new Plane (Vector3(0.0, 0.0, 0.0), Vector3(0.0, 1.0, 0.0), 
-                                       new Metal(Vector3(0.8, 0.8, 0.8), 0.0)));
-    scene.objects.push_back(new Plane (Vector3(0.0, 0.0,-4), Vector3(0.0, 0.0, 1.0), 
-                                       new Metal(Vector3(0.8, 0.8, 0.8), 0.05)));
-    scene.objects.push_back(new Sphere(Vector3( 0.0, 1.5, 0.0), 1.5, 
-                                       new Dielectric(1.5)));
+    scene.objects.push_back(new Plane(Vector3(0.0, 0.0, 0.0), 
+                                      Vector3(0.0, 1.0, 0.0), 
+                                      materials[0]));
 
-    float ring_radius = 2.0f;
+    scene.objects.push_back(new Plane(Vector3(0.0, 0.0,-18.0),
+                                      Vector3(0.0, 0.0,  1.0), 
+                                      materials[1]));
+
+    scene.objects.push_back(new Sphere(Vector3( 0.0, 2.0, 0.0), 2.0, 
+                                       materials[2]));
+
+    float ring_radius = 3.0f;
     for(int j = 0; j < 4; j++)
     {
-        for(int i = 0; i < (9 + j) * (j + 1); i++)
+        for(int i = 0; i < (8 * (j + 1)); i++)
         {
             Material* mat;
-            float mat_prob = float(rand()) / float(RAND_MAX);
+            float mat_prob = random_float();
             if(mat_prob < 0.40)
             {
-                mat = new Lambertian(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
-                                             0.5 + float(rand())/float(RAND_MAX) * 0.5, 
-                                             0.5 + float(rand())/float(RAND_MAX) * 0.5));
-            } else if(mat_prob < 0.80)
+                mat = new Lambertian(Vector3(0.5 + random_float() * 0.5, 
+                                             0.5 + random_float() * 0.5, 
+                                             0.5 + random_float() * 0.5));
+            } else if(mat_prob < 0.90)
             {
-                mat = new Metal(Vector3(0.5 + float(rand())/float(RAND_MAX) * 0.5, 
-                                        0.5 + float(rand())/float(RAND_MAX) * 0.5, 
-                                        0.5 + float(rand())/float(RAND_MAX) * 0.5),
+                mat = new Metal(Vector3(0.5 + random_float() * 0.5, 
+                                        0.5 + random_float() * 0.5, 
+                                        0.5 + random_float() * 0.5),
                                         0.1);
             } else
                 mat = new Dielectric(1.5);
 
-            const float theta  = (360 / ((9 + j) * (j + 1))) * i;
+            const float theta  = (360.0 / (8.0 * (j + 1))) * i + (j * 10);
             const float x_pos = cos(theta * M_PI / 180.0f) * ring_radius;
             const float z_pos = sin(theta * M_PI / 180.0f) * ring_radius;
 
             materials.push_back(mat);
             scene.objects.push_back(new Sphere(Vector3(x_pos, 0.5, z_pos), 0.5, mat));
-
         }
-        ring_radius *= 2;
+        ring_radius += 2.0f;
     }
 
     // Camera description
     const float view_rot = 90.0f;
-    const float dist     = 8.0f;
-    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, 
+    const float dist     = 16.0f; // 8
+    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, // 3 
                                sin(view_rot * M_PI / 180) * dist), 
+                       Vector3( 0,0.5, 0),
                        Vector3( 0,1.0, 0),
-                       Vector3( 0,1.0, 0),
-                       30,
+                       30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
-    // For measuring the current progress
-    Progress progress = {};
-    progress.width    = IMAGE_WIDTH;
-    progress.height   = IMAGE_HEIGHT;
-    progress.finished = 0;
+    const uint32_t MAX_THREADS        = 12; 
+    const uint32_t NUM_SAMPLES        = 12;
+    const float    NS_DENOM           = 1 / float(NUM_SAMPLES);
 
-    //ThreadInfo thread_info;
-    //create_thread(&progress, &thread_info);
-    
-    const uint32_t NUM_THREADS        = 12;
+    const uint32_t NUM_THREADS        = std::min<uint32_t>(MAX_THREADS, NUM_SAMPLES);
     const uint32_t SAMPLES_PER_THREAD = (NUM_SAMPLES / NUM_THREADS);
-    WorkerInfo work_info[NUM_THREADS];
-    pthread_t  threads[NUM_THREADS];
 
-    printf("Each thread will do %d samples\n", SAMPLES_PER_THREAD);
+    printf("---------------------------\n");
+    printf("Total threads       %d\n", NUM_THREADS);
+    printf("Total Samples       %d\n", NUM_SAMPLES);
+    printf("Samples per thread: %d\n", SAMPLES_PER_THREAD);
+    printf("Additional samples: %d\n", NUM_SAMPLES % NUM_THREADS);
+    printf("---------------------------\n");
+
+    ThreadImageInfo image_info[NUM_THREADS];
+    pthread_t threads[NUM_THREADS];
+
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration_cast;
+    using std::chrono::duration;
+    using std::chrono::seconds;
+    
+    auto begin = high_resolution_clock::now();
 
     for(uint32_t i = 0; i < NUM_THREADS; i++)
     {
-        work_info[i].thread_id       = i;
-        work_info[i].num_samples     = SAMPLES_PER_THREAD;
-        work_info[i].image_width     = IMAGE_WIDTH;
-        work_info[i].image_height    = IMAGE_HEIGHT;
-        work_info[i].finished_pixels = 0;
-        work_info[i].scene.camera    = &main_camera;
-        work_info[i].scene.world     = &scene;
+        image_info[i].thread_id       = i;
+        image_info[i].num_samples     = SAMPLES_PER_THREAD;
+        image_info[i].image_width     = IMAGE_WIDTH;
+        image_info[i].image_height    = IMAGE_HEIGHT;
+        image_info[i].finished_pixels = 0;
+        image_info[i].scene.camera    = &main_camera;
+        image_info[i].scene.world     = &scene;
 
         if(i == NUM_THREADS - 1)
-            work_info[i].num_samples += NUM_SAMPLES % NUM_THREADS;
+            image_info[i].num_samples += NUM_SAMPLES % NUM_THREADS;
 
-        if(pthread_create(&threads[i], NULL, process_thread_work, (void*)&work_info[i]))
+        if(pthread_create(&threads[i],              // Thread handle
+                          NULL,                     // Security options (default)
+                          thread_render_image,      // Thread function
+                          (void*) &image_info[i]))  // Parameter
             printf("[ERROR] Could not create thread #%d\n", i);
     }
+    
+    const unsigned NUM_BAR_CHARS = 80;
+    char  progress_bar_chars[NUM_BAR_CHARS];
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-
-    char bar[80];
-    memset(bar, ' ', 80);
+    memset(progress_bar_chars, ' ', NUM_BAR_CHARS);
     while(true)
     {
         uint32_t total_finished = 0;
         uint32_t total_to_do    = 0;
 
-        for(const WorkerInfo& info : work_info)
+        for(const ThreadImageInfo& info : image_info)
         {
             total_finished += info.finished_pixels;
             total_to_do    += info.image_width * info.image_height;
         }
 
         float pct = float(total_finished) / float(total_to_do);
-        int nbars = pct * 80;
+        int nbars = pct * NUM_BAR_CHARS;
 
-        memset(bar, '#', nbars);
-        printf("[%s] [%.2f]\r", bar, pct * 100.0f);
+        memset(progress_bar_chars, '#', nbars);
+        printf("Rendering image... [%s] [%.2f]\r", progress_bar_chars, pct * 100.0f);
 
         if(pct == 1.0)
         {
@@ -195,32 +210,32 @@ int main()
     for(uint32_t i = 0; i < NUM_THREADS; i++)
         pthread_join(threads[i], NULL);
 
+    auto end     = high_resolution_clock::now();
+    auto elapsed = duration<double>(end - begin).count();
+    printf("The render took %.2f seconds to complete.\n", elapsed);
+
+    // Collect all the pixels from each thread and average the result
     std::vector<Vector3> total_pixels(IMAGE_WIDTH * IMAGE_HEIGHT);
-    for(const WorkerInfo& info : work_info)
+    for(const ThreadImageInfo& info : image_info)
     {
         for(uint32_t i = 0; i < info.pixels.size(); i++)
            total_pixels[i] += info.pixels[i] * NS_DENOM;
     }
 
+    // Prepare the image data
     for(Vector3& pixel : total_pixels)
     {
         pixel = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
-        pixels.push_back(uint8_t(255.99 * pixel.z()));
-        pixels.push_back(uint8_t(255.99 * pixel.y()));
-        pixels.push_back(uint8_t(255.99 * pixel.x()));
+        image_pixels.push_back(uint8_t(255.99 * pixel.z()));
+        image_pixels.push_back(uint8_t(255.99 * pixel.y()));
+        image_pixels.push_back(uint8_t(255.99 * pixel.x()));
     }
-    gettimeofday(&end, NULL);
 
-    double time_taken = end.tv_sec + end.tv_usec / 1e6 -
-                        start.tv_sec - start.tv_usec / 1e6; // in seconds
+    write_bmp_to_file("output.bmp", image_pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
 
-    printf("time program took %f seconds to execute\n", time_taken);
-
-    //join_thread(&thread_info);
-
-    write_bmp_to_file("output.bmp", pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
     // Cleanup
     for(Material* mat : materials)
         delete mat;
+
     return 0;
 }
