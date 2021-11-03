@@ -43,29 +43,53 @@ Vector3 color(const Ray& r, const World& world, int depth)
     return (1.0 - t) * Vector3(1.0, 1.0, 1.0) + t * Vector3(0.5, 0.7, 1.0);
 }
 
-struct SectionRenderInfo
+int thread_render_image_tiles(RenderThreadControl* tcb)
 {
-    uint32_t tile_width;
-    uint32_t tile_height;
-    uint32_t tile_x;
-    uint32_t tile_y;
-};
+    ImageRenderInfo* image = (ImageRenderInfo*)&tcb->image;
 
-struct ImageRenderInfo
-{
-    std::vector<SectionRenderInfo> sections;
-    std::vector<Vector3> pixels;
+    while(true)
+    {
+        SectionRenderInfo* current_section = NULL;
 
-    pthread_mutex_t lock;
-    uint32_t num_finished_sections;
+        // Check if queue is not empty,
+        lock_mutex(tcb);
 
-    uint32_t image_width;
-    uint32_t image_height;
-    uint32_t num_samples;
+        if(image->num_finished_sections != image->sections.size())
+            current_section = &image->sections[image->num_finished_sections++];
 
-    World*  world;
-    Camera* camera;
-};
+        unlock_mutex(tcb);
+
+        // color the current section of the image
+        if(current_section != NULL)
+        {
+            const uint32_t bounds_x = current_section->tile_x + current_section->tile_width;
+            const uint32_t bounds_y = current_section->tile_y + current_section->tile_height;
+            const float NS_DENOM    = 1 / float(image->num_samples);
+
+            for(uint32_t y = current_section->tile_y; y < bounds_y; y++ )
+            {
+                for(uint32_t x = current_section->tile_x; x < bounds_x; x++ )
+                {
+                    Vector3 pixel = {};
+                    for(uint32_t i = 0; i < image->num_samples; i++)
+                    {
+                        float u = float(x + random_float()) / float(image->image_width);
+                        float v = float(y + random_float()) / float(image->image_height);
+
+                        Ray r  = image->camera->get_ray(u, v);
+                        pixel += color(r, *image->world, 0);
+                    }
+                    pixel *= NS_DENOM;
+                    image->pixels[y * image->image_width + x] = pixel; 
+                }
+            }
+            current_section = NULL;
+        } else
+            break;
+
+    }
+    return 0;
+}
 
 void* thread_render_image_tiles(void* img_param)
 {
@@ -117,9 +141,10 @@ void* thread_render_image_tiles(void* img_param)
 
 int main()
 {
+    srand(time(0));
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.9), 0.0 ));
+    materials.push_back(new Metal(Vector3(0.9, 0.8, 0.7), 0.0 ));
     materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.05));
     materials.push_back(new Dielectric(1.5));
 
@@ -185,7 +210,7 @@ int main()
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12; 
-    const uint32_t NUM_SAMPLES  = 180;
+    const uint32_t NUM_SAMPLES  = 120;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
@@ -210,16 +235,17 @@ int main()
     printf("# of samples per pixel: %d\n", NUM_SAMPLES);
     printf("---------------------------------\n");
     
-    ImageRenderInfo image_info = {};
+    RenderThreadControl thread_control;
+    thread_control.image = {};
+    thread_control.image.image_width  = IMAGE_WIDTH;
+    thread_control.image.image_height = IMAGE_HEIGHT;
+    thread_control.image.num_samples  = NUM_SAMPLES;
+    thread_control.image.world        = &scene;
+    thread_control.image.camera       = &main_camera;
+    thread_control.image.pixels       = std::vector<Vector3>(IMAGE_WIDTH * IMAGE_HEIGHT);
+    thread_control.image.num_finished_sections = 0;
 
-    image_info.image_width  = IMAGE_WIDTH;
-    image_info.image_height = IMAGE_HEIGHT;
-    image_info.num_samples  = NUM_SAMPLES;
-    image_info.world        = &scene;
-    image_info.camera       = &main_camera;
-    image_info.lock         = PTHREAD_MUTEX_INITIALIZER;
-    image_info.pixels       = std::vector<Vector3>(IMAGE_WIDTH * IMAGE_HEIGHT);
-    image_info.num_finished_sections = 0;
+    initialize_mutex(&thread_control);
 
     for(uint32_t tile_y = 0; tile_y < HEIGHT_IN_TILES; tile_y++)
     {
@@ -236,27 +262,19 @@ int main()
             if(tile_y == HEIGHT_IN_TILES - 1)
                 section.tile_height += ADDITIONAL_H;
 
-            image_info.sections.push_back(section);
-
-
+            thread_control.image.sections.push_back(section);
         }
     }
 
-    pthread_t render_threads[NUM_THREADS];
+    ThreadHandle render_threads[NUM_THREADS];
 
-    std::cout << "[INFO] Creating threads...\n";
-    for(uint32_t i = 0; i < NUM_THREADS; i++)
+    std::cout << "[INFO   ] Creating threads...\n";
+    if(create_render_threads(render_threads, NUM_THREADS, &thread_control))
     {
-        if(pthread_create(&render_threads[i],
-                          NULL,
-                          thread_render_image_tiles,
-                          (void*) &image_info))
-        {
-            std::cout << "[ERROR] could not create thread #" << i << ".Exiting now...\n";
-            return -1;
-        }
+        std::cout << "[ERROR  ] Could not create all threads. Exiting now...";
+        return -1;
     }
-    std::cout << "[SUCCESS] All threads created successfully!\n";
+    std::cout << "[SUCCESS] Successfully created all threads\n";
 
     const uint32_t BAR_WIDTH = 81;
     char  progress_bar[BAR_WIDTH];
@@ -265,8 +283,8 @@ int main()
     memset(progress_bar,' ',BAR_WIDTH - 1);
     while(true)
     {
-        const uint32_t finished = image_info.num_finished_sections;
-        const uint32_t total    = image_info.sections.size();
+        const uint32_t finished = thread_control.image.num_finished_sections;
+        const uint32_t total    = thread_control.image.sections.size();
         const uint32_t num_bars = (float(finished) / float(total)) * (BAR_WIDTH - 1);
         memset(progress_bar,'#', num_bars);
 
@@ -274,12 +292,14 @@ int main()
                   << "[" << finished << "/" << total << "]" << '\r';
 
         if(finished == total)
+        {
+            std::cout << '\n';
             break;
+        }
     }
-    for(uint32_t i = 0; i < NUM_THREADS; i++)
-        pthread_join(render_threads[i], NULL);
+    join_render_threads(render_threads, NUM_THREADS);
 
-    for(Vector3& pixel : image_info.pixels)
+    for(Vector3& pixel : thread_control.image.pixels)
     {
         pixel = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
 

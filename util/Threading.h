@@ -1,121 +1,162 @@
 #ifndef UTIL_THREADING_H
 #define UTIL_THREADING_H
 
+#include <vector>
 #include "../graphics/World.h"
 #include "../graphics/Camera.h"
-
 #include "../math/Vector3.h"
 
-struct SceneInfo
+struct SectionRenderInfo
 {
-    Camera* camera;
-    World*  world;
-};
-
-struct ThreadImageInfo
-{
-    uint32_t thread_id;
-    uint32_t num_samples;
-
     uint32_t tile_width;
     uint32_t tile_height;
     uint32_t tile_x;
     uint32_t tile_y;
+};
+
+struct ImageRenderInfo
+{
+    std::vector<SectionRenderInfo> sections;
+    std::vector<Vector3> pixels;
+
+    pthread_mutex_t lock;
+    uint32_t num_finished_sections;
 
     uint32_t image_width;
     uint32_t image_height;
-    uint32_t finished_pixels;
+    uint32_t num_samples;
 
-    std::vector<Vector3>* buffer;
-    std::vector<Vector3>  pixels;
-
-    SceneInfo  scene;
+    World*  world;
+    Camera* camera;
 };
 
-// TODO: may be parameterized but left as is for now
-void thread_render_image(ThreadImageInfo* job)
-{
-}
+struct RenderThreadControl;
+int thread_render_image_tiles(RenderThreadControl* tcb);
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32) && !defined(__CYGWIN__)
 #include <windows.h>
-
 struct ThreadHandle
 {
-    HANDLE handle;    
+    HANDLE handle;
 };
 
-DWORD win32_render_image(LPVOID job_ptr)
+struct RenderThreadControl
 {
-    thread_render_image((ThreadImageInfo*) job_ptr);
+    ImageRenderInfo image;
+    pthread_mutex_t lock;
+};
+
+DWORD WINAPI win32_render_tiles(LPVOID param)
+{
+    thread_render_image_tiles((RenderThreadControl*) param);
     return 0;
 }
 
-int create_render_threads(ThreadImageInfo* jobs, 
-                           ThreadHandle*   thread_handles,
-                           const uint32_t  NUM_THREADS)
+void initialize_mutex(RenderThreadControl* tcb)
+{
+    tcb->lock = CreateMutex(NULL,  // Security attributes (default)
+                            FALSE, // Initially not owned
+                            NULL); // No name
+}
+
+int lock_mutex(RenderThreadControl* tcb)
+{
+    return WaitForSingleObject(tcb->lock, INFINITE);
+}
+
+int unlock_mutex(RenderThreadControl* tcb)
+{
+    return ReleaseMutex(tcb->lock);
+}
+
+int create_render_threads(ThreadHandle*  threads, 
+                          const uint32_t NUM_THREADS,
+                          RenderThreadControl* tcontrol)
 {
     for(uint32_t i = 0; i < NUM_THREADS; i++)
     {
-        thread_handles[i].handle = CreateThread(NULL,               // Security attributes (default)
-                                                0,                  // Default stack size (default)
-                                                win32_render_image, // thread function
-                                                (void*) &jobs[i],   // Argument to thread function
-                                                0,                  // Creation flags (default)
-                                                NULL);
-        if(thread_handles[i].handle == NULL)
+        threads[i].handle = CreateThread(NULL,               // Security options (default)
+                                         0,                  // Stack size (default)
+                                         win32_render_tiles, // thread function
+                                         (void*) tcontrol,   // parameter
+                                         0,                  // creation flags
+                                         NULL);              // return thread ID
+        if(threads[i].handle == NULL)
         {
-            printf("[ERROR] Could not create Win32 thread #%d\n", i);
-            return -1;
+            printf("[ERROR  ] Could not create thread #%d.\n", i);
+            return 1;
         }
     }
     return 0;
 }
 
-void join_threads(ThreadHandle* thread_handles, const uint32_t NUM_THREADS)
+void join_render_threads(ThreadHandle*  threads,
+                         const uint32_t NUM_THREADS)
 {
     for(uint32_t i = 0; i < NUM_THREADS; i++)
-        WaitForSingleObject(thread_handles[i].handle, INFINITE);
+        WaitForSingleObject(threads[i].handle, INFINITE);
 }
 
 #else
 #include <pthread.h>
-
 struct ThreadHandle
 {
     pthread_t handle;
 };
 
 
-void* pthread_render_image(void* job_ptr)
+struct RenderThreadControl
 {
-    thread_render_image((ThreadImageInfo*) job_ptr);
+    ImageRenderInfo image;
+    pthread_mutex_t lock;
+};
+
+void* pthread_render_tiles(void* param)
+{
+    thread_render_image_tiles((RenderThreadControl*) param);
     return NULL;
 }
 
-int create_render_threads(ThreadImageInfo* jobs, 
-                           ThreadHandle*   thread_handles,
-                           const uint32_t  NUM_THREADS)
+void initialize_mutex(RenderThreadControl* tcb)
+{
+    tcb->lock = PTHREAD_MUTEX_INITIALIZER;
+}
+
+int lock_mutex(RenderThreadControl* tcb)
+{
+    return pthread_mutex_lock(&tcb->lock);
+}
+
+int unlock_mutex(RenderThreadControl* tcb)
+{
+    return pthread_mutex_unlock(&tcb->lock);
+}
+
+int create_render_threads(ThreadHandle*  threads, 
+                          const uint32_t NUM_THREADS,
+                          RenderThreadControl* tcontrol)
 {
     for(uint32_t i = 0; i < NUM_THREADS; i++)
     {
-        if(pthread_create(&thread_handles[i].handle, // pthread handle
-                          NULL,                      // thread attributes
-                          pthread_render_image,      // thread function
-                          (void*) &jobs[i]))         // thread parameter
+        if(pthread_create(&threads[i].handle,
+                          NULL,
+                          pthread_render_tiles,
+                          (void*) tcontrol))
         {
-            printf("[ERROR] Could not create pthread #%d\n", i);
-            return -1;
+            printf("[ERROR  ] Could not create thread #%d.\n", i);
+            return 1;
         }
     }
     return 0;
 }
 
-void join_threads(ThreadHandle* thread_handles, const uint32_t NUM_THREADS)
+void join_render_threads(ThreadHandle*  threads,
+                         const uint32_t NUM_THREADS)
 {
     for(uint32_t i = 0; i < NUM_THREADS; i++)
-        pthread_join(thread_handles[i].handle, NULL);
+        pthread_join(threads[i].handle, NULL);
 }
+
 #endif
 
 #endif
