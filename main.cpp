@@ -160,7 +160,7 @@ int main()
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
-    const uint32_t MAX_THREADS  = 11; 
+    const uint32_t MAX_THREADS  = 12; 
     const uint32_t NUM_SAMPLES  = 120;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
