@@ -264,9 +264,8 @@ int main()
     auto time_render_end   = high_resolution_clock::now();
     auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
 
-    std::cout << "The render took " << time_render_total
-              << std::fixed << std::setprecision(2)
-              << " seconds.\n";
+    std::cout << "The render took " << std::fixed << std::setprecision(2)
+              << time_render_total  << " seconds.\n";
 
     write_bmp_to_file("output.bmp", image_pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
 
