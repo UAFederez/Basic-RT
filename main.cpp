@@ -216,9 +216,13 @@ int main()
             thread_control.image.sections.push_back(section);
         }
     }
+    using std::chrono::high_resolution_clock;
+    using std::chrono::duration;
+    using std::chrono::seconds;
 
     ThreadHandle render_threads[NUM_THREADS];
-
+    
+    auto time_render_begin = high_resolution_clock::now();
     std::cout << "[INFO   ] Creating threads...\n";
     if(create_render_threads(render_threads, NUM_THREADS, &thread_control))
     {
@@ -258,6 +262,12 @@ int main()
         image_pixels.push_back(uint8_t(255.99 * pixel.y()));
         image_pixels.push_back(uint8_t(255.99 * pixel.x()));
     }
+    auto time_render_end   = high_resolution_clock::now();
+    auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
+
+    std::cout << "The render took " << time_render_total
+              << std::fixed << std::setprecision(2)
+              << " seconds.\n";
 
     write_bmp_to_file("output.bmp", image_pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
 
