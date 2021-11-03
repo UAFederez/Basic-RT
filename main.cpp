@@ -10,7 +10,6 @@
 #include <chrono>
 #include <iomanip>
 
-#include "util/ProgressBar.h"
 #include "util/BitmapImage.h"
 #include "util/Threading.h"
 #include "util/General.h"
@@ -54,8 +53,8 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
         // Check if queue is not empty,
         lock_mutex(tcb);
 
-        if(image->num_finished_sections != image->sections.size())
-            current_section = &image->sections[image->num_finished_sections++];
+        if(image->section_queue_front != image->sections.size())
+            current_section = &image->sections[image->section_queue_front++];
 
         unlock_mutex(tcb);
 
@@ -83,6 +82,7 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                     image->pixels[y * image->image_width + x] = pixel; 
                 }
             }
+            current_section->is_finished = true;
             current_section = NULL;
         } else
             break;
@@ -193,7 +193,7 @@ int main()
     thread_control.image.world        = &scene;
     thread_control.image.camera       = &main_camera;
     thread_control.image.pixels       = std::vector<Vector3>(IMAGE_WIDTH * IMAGE_HEIGHT);
-    thread_control.image.num_finished_sections = 0;
+    thread_control.image.section_queue_front = 0;
 
     initialize_mutex(&thread_control);
 
@@ -206,6 +206,7 @@ int main()
             section.tile_height = TILE_HEIGHT;
             section.tile_x      = tile_x * TILE_WIDTH;
             section.tile_y      = tile_y * TILE_HEIGHT;
+            section.is_finished = false;
 
             if(tile_x == WIDTH_IN_TILES - 1)
                 section.tile_width  += ADDITIONAL_W;
@@ -237,8 +238,15 @@ int main()
     memset(progress_bar,' ',BAR_WIDTH - 1);
     while(true)
     {
-        const uint32_t finished = thread_control.image.num_finished_sections;
-        const uint32_t total    = thread_control.image.sections.size();
+        uint32_t total    = thread_control.image.sections.size();
+        uint32_t finished = 0;
+
+        for(const SectionRenderInfo& section : thread_control.image.sections)
+        {
+            if(section.is_finished)
+                finished++;
+        }
+
         const uint32_t num_bars = (float(finished) / float(total)) * (BAR_WIDTH - 1);
         memset(progress_bar,'#', num_bars);
 
@@ -251,6 +259,7 @@ int main()
             break;
         }
     }
+
     join_render_threads(render_threads, NUM_THREADS);
 
     for(Vector3& pixel : thread_control.image.pixels)

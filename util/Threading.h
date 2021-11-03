@@ -12,6 +12,7 @@ struct SectionRenderInfo
     uint32_t tile_height;
     uint32_t tile_x;
     uint32_t tile_y;
+    bool     is_finished;
 };
 
 struct ImageRenderInfo
@@ -19,7 +20,7 @@ struct ImageRenderInfo
     std::vector<SectionRenderInfo> sections;
     std::vector<Vector3> pixels;
 
-    uint32_t num_finished_sections;
+    uint32_t section_queue_front;
 
     uint32_t image_width;
     uint32_t image_height;
