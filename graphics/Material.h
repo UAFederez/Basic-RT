@@ -29,9 +29,36 @@ Vector3 random_in_unit_sphere()
 class Material {
 public:
     virtual bool scatter(const Ray&, const HitRecord&, Vector3&, Ray&)  const = 0;
+    virtual Vector3 emitted() const
+    {
+        return Vector3(0.0, 0.0, 0.0);
+    }
     virtual ~Material()
     {
     }
+};
+
+class Emissive : public Material {
+public:
+    Emissive(const Vector3& col):
+        color(col)
+    {
+    }
+
+    virtual Vector3 emitted() const
+    {
+        return color;
+    }
+
+    virtual bool scatter(const Ray& ray_in, 
+                         const HitRecord& rec, 
+                         Vector3& attenuation, 
+                         Ray& scattered)
+        const override
+    {
+        return false;
+    }
+    Vector3 color;
 };
 
 class Lambertian : public Material {
