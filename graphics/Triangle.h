@@ -24,7 +24,9 @@ public:
 
         // Check if the point is within the supporting plane
         const float denom = -dot(normal, r.direction());
-        if(denom < 1e-6)
+
+        // fabs to allow viewing from both sides
+        if(fabs(denom) < 1e-6)
             return false;
 
         const float t = dot(normal, r.origin() - A) / denom;
@@ -40,7 +42,7 @@ public:
 
         if(CAB < 0 || CCB < 0 || CAC < 0)
             return false;
-        
+
         rec.t            = t;
         rec.point_at_t   = r.point_at_t(rec.t);
         rec.normal       = normal;
