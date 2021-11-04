@@ -25,6 +25,7 @@ public:
         // Check if the point is within the supporting plane
         const float denom = -dot(normal, r.direction());
 
+        // TODO: maybe add option for single vs. double-sided
         // fabs to allow viewing from both sides
         if(fabs(denom) < 1e-6)
             return false;
@@ -42,6 +43,9 @@ public:
 
         if(CAB < 0 || CCB < 0 || CAC < 0)
             return false;
+        
+        if(denom < 0.0) // TODO: maybe add option for single vs. double-sided
+            normal = -normal;
 
         rec.t            = t;
         rec.point_at_t   = r.point_at_t(rec.t);
