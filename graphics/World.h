@@ -3,6 +3,11 @@
 
 #include "Geometry.h"
 
+struct Light 
+{
+    Vector3 position;    
+};
+
 class World {
 public:
     bool hit_anything(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
@@ -26,6 +31,7 @@ public:
         for(Geometry* obj : objects)
             delete obj;
     }
+    Vector3 light_position;
     std::vector<Geometry*> objects;
 private:
 };

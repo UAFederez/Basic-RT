@@ -9,6 +9,7 @@
 #include <random>
 #include <chrono>
 #include <iomanip>
+#include <cassert>
 
 #include "util/BitmapImage.h"
 #include "util/Threading.h"
@@ -24,6 +25,15 @@
 #include "graphics/Plane.h"
 #include "graphics/World.h"
 
+Vector3 rotate_y(const Vector3& v, const float theta)
+{
+    const float rad = theta * M_PI / 180.0f;
+    return Vector3( dot(v, Vector3(cos(rad), 0, -sin(rad))),
+                    dot(v, Vector3(0, 1, 0)),
+                    dot(v, Vector3(sin(rad), 0, cos(rad))));
+                                   
+}
+
 Vector3 color(const Ray& r, const World& world, int depth)
 {
     HitRecord rec = {};
@@ -32,14 +42,17 @@ Vector3 color(const Ray& r, const World& world, int depth)
         Ray     scattered;
         Vector3 attenuation;
         
-        if(depth < 50 && rec.material_ptr->scatter(r, rec, attenuation, scattered))
-            return comp_mul(attenuation, color(scattered, world, depth + 1));
-        else
-            return Vector3(0.0, 0.0, 0.0);
+        if(depth > 50)
+           return Vector3(0.0, 0.0, 0.0); 
+        
+        Vector3 emitted = rec.material_ptr->emitted();
+
+        if(rec.material_ptr->scatter(r, rec, attenuation, scattered))
+            return emitted + attenuation * color(scattered, world, depth + 1);
+
+        return emitted;
     }
-    Vector3 unit_dir = normalize(r.direction());
-    float t = 0.5 * (unit_dir.y() + 1.0f);
-    return (1.0 - t) * Vector3(1.0, 1.0, 1.0) + t * Vector3(0.5, 0.7, 1.0);
+    return Vector3(0.010, 0.010, 0.035); // TODO: add ambient color to world parameters
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -95,53 +108,95 @@ int main()
 {
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Vector3(0.8, 0.7, 0.6), 0.0 ));
-    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.05));
-    materials.push_back(new Dielectric(1.5));
+    materials.push_back(new Metal(Vector3(0.5, 0.5, 0.5), 0.10));
+    materials.push_back(new Metal(Vector3(0.9, 0.8, 0.8), 0.05));
+    materials.push_back(new Dielectric(1.3));
+    materials.push_back(new Lambertian(Vector3(0.8, 0.8, 0.9)));
+    materials.push_back(new Emissive(Vector3(1.0, 1.0, 1.0)));
+    materials.push_back(new Emissive(Vector3(2.5, 2.5, 1.5)));
 
     // Scene objects
     World scene = {};
-    scene.objects.push_back(new Plane(Vector3(0.0, 0.0, 0.0), 
-                                      Vector3(0.0, 1.0, 0.0), 
-                                      materials[0]));
+    
+    const float HALF_SIDE = 1.1f;
+    const float height    = 4.0f;
 
-    scene.objects.push_back(new Plane(Vector3(0.0, 0.0,-18.0),
-                                      Vector3(0.0, 0.0,  1.0), 
-                                      materials[1]));
-
-    scene.objects.push_back(new Sphere(Vector3(0.0, 1.5, 0.0), 1.5, 
-                                       materials[2]));
-
-    float ring_radius = 2.0f;
-    for(int j = 0; j < 4; j++)
+    const auto  transform = [](const Vector3& v, const float theta) 
     {
-        for(int i = 0; i < (8 * (j + 1)); i++)
-        {
-            Material* mat;
-            float mat_prob = random_float();
-            if(mat_prob < 0.33)
-            {
-                mat = new Lambertian(Vector3(0.5 + random_float() * 0.5, 
-                                             0.5 + random_float() * 0.5, 
-                                             0.5 + random_float() * 0.5));
-            } else if(mat_prob < 0.66)
-            {
-                mat = new Metal(Vector3(0.5 + random_float() * 0.5, 
-                                        0.5 + random_float() * 0.5, 
-                                        0.5 + random_float() * 0.5),
-                                        0.1);
-            } else
-                mat = new Dielectric(1.0 + random_float());
+        const Vector3 anchor = Vector3(0.0, 0.0, -10);
+        Vector3 translated   = v + anchor;
+        Vector3 rotated      = rotate_y(translated, theta);
+        Vector3 reverted     = rotated - anchor;
 
-            const float theta  = (360.0 / (8.0 * (j + 1))) * i + (j * 10);
-            const float x_pos = cos(theta * M_PI / 180.0f) * ring_radius;
-            const float z_pos = sin(theta * M_PI / 180.0f) * ring_radius;
+        return reverted;
+    };
+    float theta = -30;
+    
+    for(int i = 0; i < 5; i++)
+    {
+        Material* mat = new Emissive(Vector3(0.7 + random_float(0.0, 0.2),
+                                             0.7 + random_float(0.0, 0.2),
+                                             0.7 + random_float(0.0, 0.2)));
 
-            materials.push_back(mat);
-            scene.objects.push_back(new Sphere(Vector3(x_pos, 0.5, z_pos), 0.5, mat));
-        }
-        ring_radius += 2.0f;
+        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
+                                             mat));
+
+        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
+                                             transform(Vector3(-HALF_SIDE, height, 0.0), theta),
+                                             mat));
+        materials.push_back(mat);
+        theta += 15;
     }
+
+
+    const float CEIL_HEIGHT = 50.0f;
+    const float CEIL_HALF   = 10.0f;
+    const float FLOOR_HALF  = 10.0f;
+
+    // floor
+    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         materials[1]));
+    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         Vector3(-FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         materials[1]));
+
+    // Front light
+    const float FRONT_HALF_H = 20.0f;
+    const float FRONT_HALF_V = 20.0f;
+    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
+                                         materials[4]));
+
+    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
+                                         Vector3( FRONT_HALF_H, FRONT_HALF_V, 50.0),
+                                         materials[4]));
+
+
+    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+                                         materials[4]));
+    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+                                         Vector3(-CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+                                         materials[4]));
+
+    scene.objects.push_back(new Sphere(Vector3(  0.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3(  3.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3( -3.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3( 1.75, 1.5, 1.0), 1.5, materials[0]));
+    scene.objects.push_back(new Sphere(Vector3(-1.75, 1.5, 1.0), 1.5, materials[1]));
+
+    // Lighting
+    scene.light_position = Vector3(0.0,5.0,1.0);
 
     // Image rendering description
     const uint32_t IMAGE_WIDTH  = 1280;
@@ -151,11 +206,10 @@ int main()
 
     // Camera description
     const float view_rot = 90.0f;
-    const float dist     = 12.0f; // 8
-    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, // 3 
-                               sin(view_rot * M_PI / 180) * dist), 
-                       Vector3( 0,0.0, 0),
-                       Vector3( 0,1.0, 0),
+    const float dist     = 15.0f; // 8
+    Camera main_camera(Vector3( 0, 3.0,12),
+                       Vector3( 0, 1.0, 0),
+                       Vector3( 0, 1.0, 0),
                        30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
@@ -231,7 +285,7 @@ int main()
     }
     std::cout << "[SUCCESS] Successfully created all threads\n";
 
-    const uint32_t BAR_WIDTH = 81;
+    const uint32_t BAR_WIDTH = 71;
     char  progress_bar[BAR_WIDTH];
     
     progress_bar[BAR_WIDTH - 1] = '\0';
@@ -261,14 +315,21 @@ int main()
     }
 
     join_render_threads(render_threads, NUM_THREADS);
-
+    
+    std::ofstream output("output.ppm");
+    output << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << '\n'
+            << "255\n";
     for(Vector3& pixel : thread_control.image.pixels)
     {
         pixel = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
 
-        image_pixels.push_back(uint8_t(255.99 * pixel.z()));
-        image_pixels.push_back(uint8_t(255.99 * pixel.y()));
-        image_pixels.push_back(uint8_t(255.99 * pixel.x()));
+        int ir = std::min(int(255.99 * pixel.z()), 255);
+        int ig = std::min(int(255.99 * pixel.y()), 255);
+        int ib = std::min(int(255.99 * pixel.x()), 255);
+
+        image_pixels.push_back(ir);
+        image_pixels.push_back(ig);
+        image_pixels.push_back(ib);
     }
     auto time_render_end   = high_resolution_clock::now();
     auto time_render_total = duration<double>(time_render_end - time_render_begin).count();

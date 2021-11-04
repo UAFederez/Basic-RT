@@ -3,55 +3,55 @@
 
 #include "Geometry.h"
 
+/**
+ * Vertices must be specified in counterclockwise order
+ **/
 class Triangle : public Geometry {
 public:
     Triangle(const Vector3& v0, 
              const Vector3& v1,
              const Vector3& v2,
              Material* material):
-        v0(v0), v1(v1), v2(v2), material(material),
-        normal(cross(v1 - v0, v2 - v0))
+        A(v0), 
+        B(v1), 
+        C(v2), 
+        material(material)
     {
     }
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
+        Vector3 normal = normalize(cross(B - A, C - A));
 
+        // Check if the point is within the supporting plane
         const float denom = -dot(normal, r.direction());
         if(denom < 1e-6)
             return false;
 
-        const float t = dot(normal, r.origin() - v0) / denom;
+        const float t = dot(normal, r.origin() - A) / denom;
+
         if(t_min > t || t > t_max)
             return false;
 
-        Vector3 p = r.point_at_t(t);
+        // Outside-inside test
+        Vector3 Q = r.point_at_t(t);
+        float CAB = dot(cross((B - A), (Q - A)), normal);
+        float CCB = dot(cross((C - B), (Q - B)), normal);
+        float CAC = dot(cross((A - C), (Q - C)), normal);
 
-        Vector3 e0 = v1 - v0;
-        Vector3 e1 = v2 - v1;
-        Vector3 e2 = v0 - v2;
-
-        Vector3 c0 = p - v0;
-        Vector3 c1 = p - v1;
-        Vector3 c2 = p - v2;
+        if(CAB < 0 || CCB < 0 || CAC < 0)
+            return false;
         
-        if(dot(normal, cross(e0, c0)) > 0 &&
-           dot(normal, cross(e1, c1)) > 0 &&
-           dot(normal, cross(e2, c2)) > 0)
-        {
-            rec.t            = t;
-            rec.point_at_t   = r.point_at_t(rec.t);
-            rec.normal       = normal;
-            rec.material_ptr = material;
-            return true;
-        }
-        return false;
+        rec.t            = t;
+        rec.point_at_t   = r.point_at_t(rec.t);
+        rec.normal       = normal;
+        rec.material_ptr = material;
+        return true;
     }
     
-    Vector3 v0;
-    Vector3 v1;
-    Vector3 v2;
+    Vector3 A;
+    Vector3 B;
+    Vector3 C;
     Material* material;
-    Vector3 normal;
 private:
 };
 
