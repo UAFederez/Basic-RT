@@ -95,22 +95,25 @@ int main()
 {
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Vector3(0.8, 0.7, 0.6), 0.0 ));
-    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.05));
-    materials.push_back(new Dielectric(1.5));
+    materials.push_back(new Metal(Vector3(0.8, 0.7, 0.6), 0.0));
+    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.0));
+    materials.push_back(new Dielectric(2.4));
+    materials.push_back(new Lambertian(Vector3(0.9, 0.4, 0.9)));
 
     // Scene objects
     World scene = {};
+    scene.objects.push_back(new Triangle(Vector3(-1.0,  0.0, 0.0),
+                                         Vector3( 1.0,  0.0, 0.0),
+                                         Vector3( 1.0,  2.0, 0.0),
+                                         materials[0]));
+    scene.objects.push_back(new Triangle(Vector3(-1.0,  0.0, 0.0),
+                                         Vector3( 1.0,  2.0, 0.0),
+                                         Vector3(-1.0,  2.0, 0.0),
+                                         materials[0]));
+
     scene.objects.push_back(new Plane(Vector3(0.0, 0.0, 0.0), 
                                       Vector3(0.0, 1.0, 0.0), 
-                                      materials[0]));
-
-    scene.objects.push_back(new Plane(Vector3(0.0, 0.0,-18.0),
-                                      Vector3(0.0, 0.0,  1.0), 
                                       materials[1]));
-
-    scene.objects.push_back(new Sphere(Vector3(0.0, 1.5, 0.0), 1.5, 
-                                       materials[2]));
 
     float ring_radius = 2.0f;
     for(int j = 0; j < 4; j++)
@@ -150,10 +153,9 @@ int main()
     const uint32_t TILE_HEIGHT  = 16;
 
     // Camera description
-    const float view_rot = 90.0f;
+    const float view_rot = 0.0f;
     const float dist     = 12.0f; // 8
-    Camera main_camera(Vector3(cos(view_rot * M_PI / 180) * dist, 3, // 3 
-                               sin(view_rot * M_PI / 180) * dist), 
+    Camera main_camera(Vector3( 0,3.0, 8),
                        Vector3( 0,0.0, 0),
                        Vector3( 0,1.0, 0),
                        30.0f, // 30
@@ -161,7 +163,7 @@ int main()
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12; 
-    const uint32_t NUM_SAMPLES  = 120;
+    const uint32_t NUM_SAMPLES  = 12;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
