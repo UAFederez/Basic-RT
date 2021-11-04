@@ -20,7 +20,7 @@ public:
     }
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
-        Vector3 normal = cross(B - A, C - A); 
+        Vector3 normal = normalize(cross(B - A, C - A));
 
         // Check if the point is within the supporting plane
         const float denom = -dot(normal, r.direction());
@@ -40,7 +40,7 @@ public:
 
         if(CAB < 0 || CCB < 0 || CAC < 0)
             return false;
-
+        
         rec.t            = t;
         rec.point_at_t   = r.point_at_t(rec.t);
         rec.normal       = normal;
