@@ -1,32 +1,57 @@
-#ifndef UTIL_RECTANGLE_H
-#define UTIL_RECTANGLE_H
+#ifndef GRAPHICS_RECTANGLE_H
+#define GRAPHICS_RECTANGLE_H
 
-class Rectangle : public Geometry {
+#include "Geometry.h"
+
+class Rectangle3D : public Geometry {
 public:
-    Plane(const Vector3& position, 
-          const Vector3& look_at, Material* mat):
-        normal(normal), origin(origin), material(mat) {}
+    Rectangle3D(const Vector3& v1,
+                const Vector3& v2,
+                const Vector3& v3,
+                const Vector3& v4,
+          Material* mat):
+        A(v1), B(v2), C(v3), D(v4),
+        material(mat)
+    {
+    }
 
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
+        // Calculate the face normal
+        Vector3 normal = normalize(cross(B - A, D - A));
+
+        // Check if ray intersects the supporting plane
         const float denom = -dot(normal, r.direction());
-        if(denom > 1e-6)
-        {
-            const float t = dot(normal, r.origin() - origin) / denom;
-            if(t_min < t && t < t_max)
-            {
-                rec.t            = t;
-                rec.point_at_t   = r.point_at_t(rec.t);
-                rec.normal       = normal;
-                rec.material_ptr = material;
-                return true;
-            }
+
+        // Is the ray almost parallel to surface of the plane 
+        if(denom < 1e-6)
             return false;
-        }
-        return false;
+
+        const float t = dot(normal, r.origin() - A) / denom;
+
+        if(t_min > t || t > t_max)
+            return false;
+
+        // Outside-inside test
+        Vector3 Q = r.point_at_t(t);
+        float c1 = dot(cross((B - A), (Q - A)), normal);
+        float c2 = dot(cross((C - B), (Q - B)), normal);
+        float c3 = dot(cross((D - C), (Q - C)), normal);
+        float c4 = dot(cross((A - D), (Q - D)), normal);
+
+        if(c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0)
+            return false;
+
+        rec.t            = t;
+        rec.point_at_t   = r.point_at_t(rec.t);
+        rec.normal       = normal;
+        rec.material_ptr = material;
+        return true;
     }
-    Vector3   normal;
-    Vector3   origin;
+    Vector3 A;
+    Vector3 B;
+    Vector3 C;
+    Vector3 D;
     Material* material;
 };
 
