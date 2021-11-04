@@ -113,87 +113,45 @@ int main()
     materials.push_back(new Dielectric(1.3));
     materials.push_back(new Lambertian(Vector3(0.8, 0.8, 0.9)));
     materials.push_back(new Emissive(Vector3(1.0, 1.0, 1.0)));
-    materials.push_back(new Emissive(Vector3(2.5, 2.5, 1.5)));
+    materials.push_back(new Emissive(Vector3(1.0, 0.7, 0.7)));
 
     // Scene objects
     World scene = {};
-    
-    const float HALF_SIDE = 1.1f;
-    const float height    = 4.0f;
 
-    const auto  transform = [](const Vector3& v, const float theta) 
-    {
-        const Vector3 anchor = Vector3(0.0, 0.0, -10);
-        Vector3 translated   = v + anchor;
-        Vector3 rotated      = rotate_y(translated, theta);
-        Vector3 reverted     = rotated - anchor;
+    scene.objects.push_back(new Plane(Vector3(0.0,-5.0, 0.0),
+                                      Vector3(0.0, 1.0, 0.0),
+                                      materials[0]));
+    scene.objects.push_back(new Sphere(Vector3(-4.0,-4.0, -4.0), 1.0, materials[5]));
 
-        return reverted;
-    };
-    float theta = -30;
-    
-    for(int i = 0; i < 5; i++)
-    {
-        Material* mat = new Emissive(Vector3(0.7 + random_float(0.0, 0.2),
-                                             0.7 + random_float(0.0, 0.2),
-                                             0.7 + random_float(0.0, 0.2)));
-
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             mat));
-
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             transform(Vector3(-HALF_SIDE, height, 0.0), theta),
-                                             mat));
-        materials.push_back(mat);
-        theta += 15;
-    }
-
-
-    const float CEIL_HEIGHT = 50.0f;
-    const float CEIL_HALF   = 10.0f;
-    const float FLOOR_HALF  = 10.0f;
-
-    // floor
-    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
-                                         Vector3( FLOOR_HALF, 0, FLOOR_HALF),
-                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
-                                         materials[1]));
-    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
-                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
-                                         Vector3(-FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
-                                         materials[1]));
-
-    // Front light
-    const float FRONT_HALF_H = 20.0f;
-    const float FRONT_HALF_V = 20.0f;
-    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
-                                         Vector3(-FRONT_HALF_H,-FRONT_HALF_V, 50.0),
-                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
+    // All permutations of 3 vertices
+    scene.objects.push_back(new Triangle(Vector3(-1.0, 0.0, 0.0), // A
+                                         Vector3( 1.0, 0.0, 0.0), // B
+                                         Vector3( 0.0, 2.0, 0.0), // C
                                          materials[4]));
-
-    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
-                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
-                                         Vector3( FRONT_HALF_H, FRONT_HALF_V, 50.0),
+    scene.objects.push_back(new Triangle(Vector3(-1.0, 0.0, 1.0), // A
+                                         Vector3( 0.0, 2.0, 1.0), // C
+                                         Vector3( 1.0, 0.0, 1.0), // B
                                          materials[4]));
-
-
-    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
-                                         Vector3( CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
-                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -1.0), // B
+                                         Vector3(-1.0, 0.0, -1.0), // A
+                                         Vector3( 0.0, 2.0, -1.0), // C
                                          materials[4]));
-    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
-                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
-                                         Vector3(-CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -2.0), // B
+                                         Vector3( 0.0, 2.0, -2.0), // C
+                                         Vector3(-1.0, 0.0, -2.0), // A
                                          materials[4]));
-
-    scene.objects.push_back(new Sphere(Vector3(  0.0, 0.75, 3.0), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vector3(  3.0, 0.75, 3.0), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vector3( -3.0, 0.75, 3.0), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vector3( 1.75, 1.5, 1.0), 1.5, materials[0]));
-    scene.objects.push_back(new Sphere(Vector3(-1.75, 1.5, 1.0), 1.5, materials[1]));
+    scene.objects.push_back(new Triangle(Vector3( 0.0, 2.0, 2.0), // C
+                                         Vector3(-1.0, 0.0, 2.0), // A
+                                         Vector3( 1.0, 0.0, 2.0), // B
+                                         materials[4]));
+    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -3.0), // B
+                                         Vector3( 0.0, 2.0, -3.0), // C
+                                         Vector3(-1.0, 0.0, -3.0), // A
+                                         materials[4]));
+    scene.objects.push_back(new Triangle(Vector3( 0.0, 2.0, 3.0), // C
+                                         Vector3( 1.0, 0.0, 3.0), // B
+                                         Vector3(-1.0, 0.0, 3.0), // A
+                                         materials[4]));
 
     // Lighting
     scene.light_position = Vector3(0.0,5.0,1.0);
@@ -205,17 +163,19 @@ int main()
     const uint32_t TILE_HEIGHT  = 16;
 
     // Camera description
-    const float view_rot = 90.0f;
+    const float view_rot = 112.0f;
     const float dist     = 15.0f; // 8
-    Camera main_camera(Vector3( 0, 3.0,12),
-                       Vector3( 0, 1.0, 0),
+    Camera main_camera(Vector3( cos(view_rot * M_PI / 180.0f) * dist, 
+                                2.5,
+                                sin(view_rot * M_PI / 180.0f) * dist),
+                       Vector3( 0, 0.0, 0),
                        Vector3( 0, 1.0, 0),
                        30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12; 
-    const uint32_t NUM_SAMPLES  = 120;
+    const uint32_t NUM_SAMPLES  = 1;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
