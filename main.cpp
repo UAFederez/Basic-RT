@@ -197,7 +197,7 @@ int main()
                                             Vec3({ size / 2.0, size, plane_dist}),
                                             materials[4]));
     
-    load_mesh_obj_file("meshes/teapot.obj", materials[3], &scene.objects);
+    load_mesh_obj_file("meshes/teapot.obj", materials[2], &scene.objects);
 
     const float HALF_SIDE = 1.1f;
     const float height    = 8.0f;

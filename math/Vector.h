@@ -1,6 +1,7 @@
 #ifndef MATH_VECTOR_H
 #define MATH_VECTOR_H
 
+#include <cassert>
 #include "../util/General.h"    // random_float()
 
 using scalar = double;
@@ -203,13 +204,14 @@ inline Vector<N> reflect(const Vector<N>& vec, const Vector<N>& normal)
 
 inline Vec3 random_in_unit_sphere()
 {
-    Vec3 point;
-    do {
-        point = 2.0 * Vec3({ random_float(), 
-                             random_float(), 
-                             random_float() }) - Vec3({1.0, 1.0, 1.0});
-    } while(point.magnitude_squared() >= 1.0f);
-    return point;
+    const scalar rand_theta = random_float(0.0, 2 * M_PI);
+    const scalar rand_phi   = random_float(0.0, 2 * M_PI);
+    
+    return Vec3({
+        cos(rand_theta) * sin(rand_phi),
+        sin(rand_theta) * sin(rand_phi),
+        cos(rand_phi),
+    });
 }
 
 inline Vec3 refract(const Vec3& incident, const Vec3& normal, const float ior)
