@@ -10,6 +10,8 @@
 #include <chrono>
 #include <iomanip>
 #include <cassert>
+#include <sstream>
+#include <memory>
 
 #include "util/BitmapImage.h"
 #include "util/Threading.h"
@@ -22,6 +24,7 @@
 #include "graphics/Camera.h"
 #include "graphics/Sphere.h"
 #include "graphics/Triangle.h"
+#include "graphics/Rectangle.h"
 #include "graphics/Plane.h"
 #include "graphics/World.h"
 
@@ -52,7 +55,7 @@ Vector3 color(const Ray& r, const World& world, int depth)
 
         return emitted;
     }
-    return Vector3(0.010, 0.010, 0.035); // TODO: add ambient color to world parameters
+    return Vector3(0.7, 0.7, 0.8); // TODO: add ambient color to world parameters
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -104,54 +107,172 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
     return 0;
 }
 
+// Very basic, not good
+void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Geometry*>* scene)
+{
+    Vector3 translate = Vector3(0.0,2.0, 6.0);
+    std::ifstream input_file(path);
+    std::string line;
+
+    int num_poly = 0;
+    int tri_indices[3];
+    int verts_read_so_far = 0;
+    std::vector<Vector3> vertices = {};
+
+    int  dummy; // To consume unneeded fields for now
+    char slash;
+    while(std::getline(input_file, line))
+    {
+        if(line[0] == '#') 
+            continue;
+
+        std::istringstream istr(line);
+
+        // Reading a vertex
+        if(line.find("v") == 0)
+        {
+            istr >> slash;
+            float x_pos, y_pos, z_pos;
+            istr >> x_pos >> y_pos >> z_pos;
+            vertices.push_back(Vector3(x_pos, y_pos, z_pos));
+        }
+
+        // Reading a face
+        if(line.find("f") == 0)
+        {
+            std::string field;
+            istr >> field;      // consume 'f'
+            while(verts_read_so_far < 3)
+            {
+                istr >> tri_indices[verts_read_so_far++];
+
+                if(!std::isspace(istr.peek()))
+                {
+                    istr >> slash;      // consume '/'
+                    istr >> dummy;
+                    istr >> slash;
+                    istr >> dummy;
+                }
+            }
+
+            if(verts_read_so_far == 3)
+            {
+                scene->push_back(new Triangle(vertices[tri_indices[0] - 1] + translate,
+                                              vertices[tri_indices[1] - 1] + translate,
+                                              vertices[tri_indices[2] - 1] + translate,
+                                              mat));
+                num_poly++;
+                verts_read_so_far = 0;
+            } // TODO: Otherwise it must be an error in the file
+        }
+
+        //std::cout << line << '\n';
+    }
+}
+
 int main()
 {
     // Materials
     std::vector<Material*> materials;
     materials.push_back(new Metal(Vector3(0.5, 0.5, 0.5), 0.10));
-    materials.push_back(new Metal(Vector3(0.9, 0.8, 0.8), 0.05));
-    materials.push_back(new Dielectric(1.3));
-    materials.push_back(new Lambertian(Vector3(0.8, 0.8, 0.9)));
-    materials.push_back(new Emissive(Vector3(1.0, 1.0, 1.0)));
+    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.8), 0.10));
+    materials.push_back(new Dielectric(2.4));
+    materials.push_back(new Lambertian(Vector3(0.9, 0.5, 0.9)));
+    materials.push_back(new Emissive(Vector3(10.0, 10.0, 10.0)));
     materials.push_back(new Emissive(Vector3(1.0, 0.7, 0.7)));
+    materials.push_back(new Metal(Vector3(0.8, 0.8, 0.9), 0.05));
 
     // Scene objects
     World scene = {};
 
-    scene.objects.push_back(new Plane(Vector3(0.0,-5.0, 0.0),
-                                      Vector3(0.0, 1.0, 0.0),
-                                      materials[0]));
-    scene.objects.push_back(new Sphere(Vector3(-4.0,-4.0, -4.0), 1.0, materials[5]));
+    const float plane_dist = 20.0;
+    const float size       = 10.0f;
+    scene.objects.push_back(new Rectangle3D(Vector3(-size / 2.0, 0.0,  plane_dist),
+                                            Vector3(-size / 2.0, size, plane_dist),
+                                            Vector3( size / 2.0, 0.0,  plane_dist),
+                                            Vector3( size / 2.0, size, plane_dist),
+                                            materials[4]));
+    
+    load_mesh_obj_file("meshes/sphere.obj", materials[3], &scene.objects);
 
-    // All permutations of 3 vertices
-    scene.objects.push_back(new Triangle(Vector3(-1.0, 0.0, 0.0), // A
-                                         Vector3( 1.0, 0.0, 0.0), // B
-                                         Vector3( 0.0, 2.0, 0.0), // C
+    const float HALF_SIDE = 1.1f;
+    const float height    = 8.0f;
+
+    const auto  transform = [](const Vector3& v, const float theta) 
+    {
+        const Vector3 anchor = Vector3(0.0, 0.0, -10);
+        Vector3 translated   = v + anchor;
+        Vector3 rotated      = rotate_y(translated, theta);
+        Vector3 reverted     = rotated - anchor;
+
+        return reverted;
+    };
+    /**
+    float theta = -30;
+    
+    for(int i = 0; i < 5; i++)
+    {
+        Material* mat = new Metal(Vector3(0.7 + random_float(0.0, 0.2),
+                                          0.7 + random_float(0.0, 0.2),
+                                          0.7 + random_float(0.0, 0.2)));
+
+        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
+                                             mat));
+
+        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
+                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
+                                             transform(Vector3(-HALF_SIDE, height, 0.0), theta),
+                                             mat));
+        materials.push_back(mat);
+        theta += 15;
+    }
+    **/
+
+    const float CEIL_HEIGHT = 50.0f;
+    const float CEIL_HALF   = 10.0f;
+    const float FLOOR_HALF  = 10.0f;
+
+    // floor
+    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         materials[0]));
+    scene.objects.push_back(new Triangle(Vector3(-FLOOR_HALF, 0, FLOOR_HALF),
+                                         Vector3( FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         Vector3(-FLOOR_HALF, 0,-FLOOR_HALF * 2.0),
+                                         materials[0]));
+
+    // Front light
+    const float FRONT_HALF_H = 20.0f;
+    const float FRONT_HALF_V = 20.0f;
+    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
                                          materials[4]));
-    scene.objects.push_back(new Triangle(Vector3(-1.0, 0.0, 1.0), // A
-                                         Vector3( 0.0, 2.0, 1.0), // C
-                                         Vector3( 1.0, 0.0, 1.0), // B
+
+    scene.objects.push_back(new Triangle(Vector3( FRONT_HALF_H,-FRONT_HALF_V, 50.0),
+                                         Vector3(-FRONT_HALF_H, FRONT_HALF_V, 50.0),
+                                         Vector3( FRONT_HALF_H, FRONT_HALF_V, 50.0),
                                          materials[4]));
-    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -1.0), // B
-                                         Vector3(-1.0, 0.0, -1.0), // A
-                                         Vector3( 0.0, 2.0, -1.0), // C
+
+
+    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
                                          materials[4]));
-    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -2.0), // B
-                                         Vector3( 0.0, 2.0, -2.0), // C
-                                         Vector3(-1.0, 0.0, -2.0), // A
+    scene.objects.push_back(new Triangle(Vector3(-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF),
+                                         Vector3( CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
+                                         Vector3(-CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0),
                                          materials[4]));
-    scene.objects.push_back(new Triangle(Vector3( 0.0, 2.0, 2.0), // C
-                                         Vector3(-1.0, 0.0, 2.0), // A
-                                         Vector3( 1.0, 0.0, 2.0), // B
-                                         materials[4]));
-    scene.objects.push_back(new Triangle(Vector3( 1.0, 0.0, -3.0), // B
-                                         Vector3( 0.0, 2.0, -3.0), // C
-                                         Vector3(-1.0, 0.0, -3.0), // A
-                                         materials[4]));
-    scene.objects.push_back(new Triangle(Vector3( 0.0, 2.0, 3.0), // C
-                                         Vector3( 1.0, 0.0, 3.0), // B
-                                         Vector3(-1.0, 0.0, 3.0), // A
-                                         materials[4]));
+
+    scene.objects.push_back(new Sphere(Vector3(  0.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3(  3.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3( -3.0, 0.75, 3.0), 0.75, materials[2]));
+    scene.objects.push_back(new Sphere(Vector3( 1.75, 1.5, 1.0), 1.5, materials[0]));
+    scene.objects.push_back(new Sphere(Vector3(-1.75, 1.5, 1.0), 1.5, materials[1]));
+
 
     // Lighting
     scene.light_position = Vector3(0.0,5.0,1.0);
@@ -163,12 +284,12 @@ int main()
     const uint32_t TILE_HEIGHT  = 16;
 
     // Camera description
-    const float view_rot = 112.0f;
-    const float dist     = 15.0f; // 8
+    const float view_rot = 90.0f; // 60.0f
+    const float dist     = 20.0f; // 8
     Camera main_camera(Vector3( cos(view_rot * M_PI / 180.0f) * dist, 
-                                2.5,
+                                4.0,
                                 sin(view_rot * M_PI / 180.0f) * dist),
-                       Vector3( 0, 0.0, 0),
+                       Vector3( 0, 2.5, 6.0),
                        Vector3( 0, 1.0, 0),
                        30.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
@@ -276,9 +397,6 @@ int main()
 
     join_render_threads(render_threads, NUM_THREADS);
     
-    std::ofstream output("output.ppm");
-    output << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << '\n'
-            << "255\n";
     for(Vector3& pixel : thread_control.image.pixels)
     {
         pixel = Vector3(sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z()));
