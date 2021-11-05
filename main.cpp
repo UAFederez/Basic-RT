@@ -59,7 +59,9 @@ Vec3 color(const Ray& r, const Scene& world, int depth)
 
         return emitted;
     }
-    return Vec3({ 0.7, 0.7, 0.8 }); // TODO: add ambient color to world parameters
+    Vec3 unit_dir = normalize(r.direction());
+    float t = 0.5 * (unit_dir.y() + 1.0f);
+    return (1.0 - t) * Vec3({ 1.0, 1.0, 1.0 }) + t * Vec3({0.5, 0.7, 1.0});
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -114,15 +116,22 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
 // Very basic, not good
 void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Primitive*>* scene)
 {
-    Vec3 translate = Vec3({ 0.0, 2.0, 6.0 });
+    Vec3 translate = Vec3({ 0.0, 2.5, 6. });
     std::ifstream input_file(path);
     std::string line;
 
     int num_poly = 0;
+
     int tri_indices[3];
     int verts_read_so_far = 0;
-    std::vector<Vec3> vertices = {};
 
+    int nrm_indices[3];
+    int norms_read_so_far = 0;
+
+    std::vector<Vec3> vertices       = {};
+    std::vector<Vec3> vertex_normals = {};
+
+    std::string dummy_str;
     int  dummy; // To consume unneeded fields for now
     char slash;
     while(std::getline(input_file, line))
@@ -138,7 +147,17 @@ void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Prim
             istr >> slash;
             float x_pos, y_pos, z_pos;
             istr >> x_pos >> y_pos >> z_pos;
-            vertices.push_back(Vec3({ x_pos, y_pos, z_pos }));
+            vertices.push_back(0.25 * Vec3({ x_pos, y_pos, z_pos }));
+        }
+
+        if(line.find("vn") == 0)
+        {
+            std::istringstream nrm(line.substr(2));
+
+            float x_nrm, y_nrm, z_nrm;
+            nrm >> x_nrm >> y_nrm >> z_nrm;
+            std::printf("normal: (%.2f, %.2f, %.2f)\n", x_nrm, y_nrm, z_nrm);
+            vertex_normals.push_back(normalize(Vec3({ x_nrm, y_nrm, z_nrm })));
         }
 
         // Reading a face
@@ -153,20 +172,28 @@ void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Prim
                 if(!std::isspace(istr.peek()))
                 {
                     istr >> slash;      // consume '/'
-                    istr >> dummy;
+                    istr >> dummy;      // vertex texture index
                     istr >> slash;
-                    istr >> dummy;
+                    istr >> nrm_indices[norms_read_so_far++];      // vertex normal index
                 }
             }
 
             if(verts_read_so_far == 3)
             {
-                scene->push_back(new Triangle(vertices[tri_indices[0] - 1] + translate,
-                                              vertices[tri_indices[1] - 1] + translate,
-                                              vertices[tri_indices[2] - 1] + translate,
-                                              mat));
+                Triangle* tri = new Triangle(vertices[tri_indices[0] - 1] + translate,
+                                             vertices[tri_indices[1] - 1] + translate,
+                                             vertices[tri_indices[2] - 1] + translate,
+                                             mat);
+
+                tri->a_nrm = vertex_normals[nrm_indices[0] - 1];
+                tri->b_nrm = vertex_normals[nrm_indices[1] - 1];
+                tri->c_nrm = vertex_normals[nrm_indices[2] - 1];
+
+                scene->push_back(tri);
                 num_poly++;
+
                 verts_read_so_far = 0;
+                norms_read_so_far = 0;
             } // TODO: Otherwise it must be an error in the file
         }
 
@@ -180,7 +207,7 @@ int main()
     std::vector<Material*> materials;
     materials.push_back(new Metal(Vec3({0.5, 0.5, 0.5}), 0.10));
     materials.push_back(new Metal(Vec3({0.8, 0.8, 0.8}), 0.10));
-    materials.push_back(new Dielectric(2.4));
+    materials.push_back(new Dielectric(1.5));
     materials.push_back(new Lambertian(Vec3({0.9, 0.5, 0.9})));
     materials.push_back(new Emissive(Vec3({10.0, 10.0, 10.0})));
     materials.push_back(new Emissive(Vec3({1.0, 0.7, 0.7})));
@@ -188,21 +215,15 @@ int main()
 
     // Scene objects
     Scene scene = {};
-
-    const float plane_dist = 20.0;
-    const float size       = 10.0f;
-    scene.objects.push_back(new Rectangle3D(Vec3({-size / 2.0, 0.0,  plane_dist}),
-                                            Vec3({-size / 2.0, size, plane_dist}),
-                                            Vec3({ size / 2.0, 0.0,  plane_dist}),
-                                            Vec3({ size / 2.0, size, plane_dist}),
-                                            materials[4]));
-    
     load_mesh_obj_file("meshes/teapot.obj", materials[2], &scene.objects);
+
+    const float plane_dist = 18.0;
+    const float size       = 10.0f;
 
     const float HALF_SIDE = 1.1f;
     const float height    = 8.0f;
 
-    const auto  transform = [](const Vec3& v, const float theta) 
+    const auto  transform = [](const Vec3& v, const float theta)
     {
         const Vec3 anchor = Vec3({ 0.0, 0.0, -10 });
         Vec3 translated   = v + anchor;
@@ -211,72 +232,23 @@ int main()
 
         return reverted;
     };
-    /**
-    float theta = -30;
-    
-    for(int i = 0; i < 5; i++)
-    {
-        Material* mat = new Metal(Vector3(0.7 + random_float(0.0, 0.2),
-                                          0.7 + random_float(0.0, 0.2),
-                                          0.7 + random_float(0.0, 0.2)));
-
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             mat));
-
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             transform(Vector3(-HALF_SIDE, height, 0.0), theta),
-                                             mat));
-        materials.push_back(mat);
-        theta += 15;
-    }
-    **/
 
     const float CEIL_HEIGHT = 50.0f;
     const float CEIL_HALF   = 10.0f;
     const float FLOOR_HALF  = 10.0f;
 
     // floor
-    scene.objects.push_back(new Triangle(Vec3({-FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         materials[0]));
-    scene.objects.push_back(new Triangle(Vec3({-FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         Vec3({-FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         materials[0]));
-
-    // Front light
-    const float FRONT_HALF_H = 20.0f;
-    const float FRONT_HALF_V = 20.0f;
-    scene.objects.push_back(new Triangle(Vec3({ FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         materials[4]));
-
-    scene.objects.push_back(new Triangle(Vec3({ FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         Vec3({ FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         materials[4]));
-
-
-    scene.objects.push_back(new Triangle(Vec3({-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         materials[4]));
-    scene.objects.push_back(new Triangle(Vec3({-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         Vec3({-CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         materials[4]));
+    scene.objects.push_back(new Rectangle3D(Vec3({-FLOOR_HALF, 0.0,  plane_dist}),
+                                            Vec3({ FLOOR_HALF, 0.0,  FLOOR_HALF * 2.0}),
+                                            Vec3({ FLOOR_HALF, 0.0, -FLOOR_HALF * 2.0}),
+                                            Vec3({-FLOOR_HALF, 0.0, -FLOOR_HALF * 2.0}),
+                                            materials[1]));
 
     scene.objects.push_back(new Sphere(Vec3({ 0.0, 0.75, 3.0}), 0.75, materials[2]));
     scene.objects.push_back(new Sphere(Vec3({ 3.0, 0.75, 3.0}), 0.75, materials[2]));
     scene.objects.push_back(new Sphere(Vec3({-3.0, 0.75, 3.0}), 0.75, materials[2]));
     scene.objects.push_back(new Sphere(Vec3({ 1.75, 1.5, 1.0}), 1.5, materials[0]));
     scene.objects.push_back(new Sphere(Vec3({-1.75, 1.5, 1.0}), 1.5, materials[1]));
-
 
     // Image rendering description
     const uint32_t IMAGE_WIDTH  = 1280;
@@ -288,8 +260,8 @@ int main()
     const float view_rot = 90.0f; // 60.0f
     const float dist     = 20.0f; // 8
     Camera main_camera(Vec3({ cos(view_rot * M_PI / 180.0f) * dist, 
-                                4.0,
-                                sin(view_rot * M_PI / 180.0f) * dist}),
+                              8.0,
+                              sin(view_rot * M_PI / 180.0f) * dist}),
                        Vec3({ 0, 2.5, 6.0}),
                        Vec3({ 0, 1.0, 0}),
                        30.0f, // 30
@@ -297,7 +269,7 @@ int main()
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12; 
-    const uint32_t NUM_SAMPLES  = 1;
+    const uint32_t NUM_SAMPLES  = 180;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
