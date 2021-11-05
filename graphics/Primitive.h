@@ -2,7 +2,7 @@
 #define GEOM_H
 
 #include "Material.h"
-#include "../math/Vector3.h"
+#include "../math/Vector.h"
 #include "../math/Ray.h"
 
 class Material;

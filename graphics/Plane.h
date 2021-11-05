@@ -5,7 +5,7 @@
 
 class Plane : public Primitive {
 public:
-    Plane(const Vector3& origin, const Vector3& normal, Material* mat):
+    Plane(const Vec3& origin, const Vec3& normal, Material* mat):
         normal(normal), origin(origin), material(mat) {}
 
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
@@ -26,8 +26,8 @@ public:
         }
         return false;
     }
-    Vector3   normal;
-    Vector3   origin;
+    Vec3 normal;
+    Vec3 origin;
     Material* material;
 };
 

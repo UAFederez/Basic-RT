@@ -7,12 +7,12 @@ class Sphere : public Primitive {
 public:
     Sphere() {}
 
-    Sphere(const Vector3& center, const float radius, Material* material):
+    Sphere(const Vec3& center, const float radius, Material* material):
         center(center), radius(radius), material(material) {}
 
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
-        Vector3 oc = r.origin() - center;
+        Vec3 oc = r.origin() - center;
         float a = dot(r.direction(), r.direction());
         float b = dot(oc, r.direction());
         float c = dot(oc, oc) - radius * radius;
@@ -45,7 +45,7 @@ public:
     ~Sphere() {
     }
 private:
-    Vector3   center;
+    Vec3      center;
     float     radius;
     Material* material;
 };
