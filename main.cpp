@@ -13,6 +13,8 @@
 #include <sstream>
 #include <memory>
 
+#include "math/Vector.h"
+
 #include "util/BitmapImage.h"
 #include "util/Threading.h"
 #include "util/General.h"
