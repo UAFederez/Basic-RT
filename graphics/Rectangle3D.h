@@ -1,9 +1,9 @@
 #ifndef GRAPHICS_RECTANGLE_H
 #define GRAPHICS_RECTANGLE_H
 
-#include "Geometry.h"
+#include "Primitive.h"
 
-class Rectangle3D : public Geometry {
+class Rectangle3D : public Primitive {
 public:
     Rectangle3D(const Vector3& v1,
                 const Vector3& v2,

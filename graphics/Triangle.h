@@ -1,12 +1,12 @@
 #ifndef GRAPHICS_TRIANGLE_H
 #define GRAPHICS_TRIANGLE_H
 
-#include "Geometry.h"
+#include "Primitive.h"
 
 /**
  * Vertices must be specified in counterclockwise order
  **/
-class Triangle : public Geometry {
+class Triangle : public Primitive {
 public:
     Triangle(const Vector3& v0, 
              const Vector3& v1,

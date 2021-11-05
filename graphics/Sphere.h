@@ -1,9 +1,9 @@
 #ifndef GRAPHICS_SPHERE_H
 #define GRAPHICS_SPHERE_H
 
-#include "Geometry.h"
+#include "Primitive.h"
 
-class Sphere : public Geometry {
+class Sphere : public Primitive {
 public:
     Sphere() {}
 

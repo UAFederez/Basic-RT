@@ -1,9 +1,9 @@
 #ifndef GRAPHICS_PLANE_H
 #define GRAPHICS_PLANE_H
 
-#include "Geometry.h"
+#include "Primitive.h"
 
-class Plane : public Geometry {
+class Plane : public Primitive {
 public:
     Plane(const Vector3& origin, const Vector3& normal, Material* mat):
         normal(normal), origin(origin), material(mat) {}

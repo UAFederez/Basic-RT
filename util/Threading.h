@@ -2,7 +2,7 @@
 #define UTIL_THREADING_H
 
 #include <vector>
-#include "../graphics/World.h"
+#include "../graphics/Scene.h"
 #include "../graphics/Camera.h"
 #include "../math/Vector3.h"
 
@@ -26,7 +26,7 @@ struct ImageRenderInfo
     uint32_t image_height;
     uint32_t num_samples;
 
-    World*  world;
+    Scene*  world;
     Camera* camera;
 };
 

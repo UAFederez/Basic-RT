@@ -1,16 +1,19 @@
 #ifndef GRAPHICS_WORLD_H
 #define GRAPHICS_WORLD_H
 
-#include "Geometry.h"
+#include "Primitive.h"
 
 struct Light 
 {
     Vector3 position;    
 };
 
-class World {
+class Scene {
 public:
-    bool hit_anything(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
+    bool anything_hit_by_ray(const Ray&  r, 
+                             const float t_min, 
+                             const float t_max, 
+                             HitRecord&  rec) const
     {
         HitRecord temp_rec = {};
         float closest      = t_max;
@@ -27,12 +30,16 @@ public:
         }
         return hit_anything;
     }
-    ~World() {
-        for(Geometry* obj : objects)
+
+    // Deallocate scene objects
+    ~Scene() 
+    {
+        for(Primitive* obj : objects)
             delete obj;
     }
+
     Vector3 light_position;
-    std::vector<Geometry*> objects;
+    std::vector<Primitive*> objects;
 private:
 };
 

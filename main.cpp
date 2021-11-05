@@ -24,9 +24,9 @@
 #include "graphics/Camera.h"
 #include "graphics/Sphere.h"
 #include "graphics/Triangle.h"
-#include "graphics/Rectangle.h"
+#include "graphics/Rectangle3D.h"
 #include "graphics/Plane.h"
-#include "graphics/World.h"
+#include "graphics/Scene.h"
 
 Vector3 rotate_y(const Vector3& v, const float theta)
 {
@@ -37,10 +37,10 @@ Vector3 rotate_y(const Vector3& v, const float theta)
                                    
 }
 
-Vector3 color(const Ray& r, const World& world, int depth)
+Vector3 color(const Ray& r, const Scene& world, int depth)
 {
     HitRecord rec = {};
-    if(world.hit_anything(r, 1e-3, FLT_MAX, rec))
+    if(world.anything_hit_by_ray(r, 1e-3, FLT_MAX, rec))
     {
         Ray     scattered;
         Vector3 attenuation;
@@ -108,7 +108,7 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
 }
 
 // Very basic, not good
-void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Geometry*>* scene)
+void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Primitive*>* scene)
 {
     Vector3 translate = Vector3(0.0,2.0, 6.0);
     std::ifstream input_file(path);
@@ -183,7 +183,7 @@ int main()
     materials.push_back(new Metal(Vector3(0.8, 0.8, 0.9), 0.05));
 
     // Scene objects
-    World scene = {};
+    Scene scene = {};
 
     const float plane_dist = 20.0;
     const float size       = 10.0f;
