@@ -51,13 +51,47 @@ public:
         float beta  = CAC / area;
         float gamma = CAB / area;
 
+        // If vertex normals have been explicitly defined
+        if(a_nrm.magnitude_squared() != 0 &&
+           b_nrm.magnitude_squared() != 0 &&
+           c_nrm.magnitude_squared() != 0 )
+            normal = (a_nrm * alpha) + (b_nrm * beta) + (c_nrm * gamma);
+
         rec.uv           = Vec2({ beta, gamma });
         rec.t            = t;
         rec.point_at_t   = r.point_at_t(rec.t);
-        rec.normal       = (a_nrm * alpha) + (b_nrm * beta) + (c_nrm * gamma);
+        rec.normal       = normal;
         rec.material_ptr = material;
         return true;
     }
+
+    BoundsDefinition get_bounds() const
+    {
+        Vec3 low_far = A;
+        Vec3 up_near = A;
+
+        Vec3 vertices[3] = { A, B, C };
+
+        for(const Vec3 v : vertices)
+        {
+            if(v.x() < low_far.x())
+                low_far[0] = v.x();
+            if(v.y() < low_far.y())
+                low_far[1] = v.y();
+            if(v.z() < low_far.z())
+                low_far[2] = v.z();
+
+            if(v.x() > up_near.x())
+                up_near[0] = v.x();
+            if(v.y() > up_near.y())
+                up_near[1] = v.y();
+            if(v.z() > up_near.z())
+                up_near[2] = v.z();
+        }
+
+        return BoundsDefinition { low_far, up_near };
+    }
+
     // Vertex normals
     Vec3 a_nrm;
     Vec3 b_nrm;
@@ -66,7 +100,7 @@ public:
     Vec3 A;
     Vec3 B;
     Vec3 C;
-    Material* material;
+    Material* material = nullptr;
 private:
 };
 

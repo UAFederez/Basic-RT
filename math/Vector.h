@@ -8,6 +8,9 @@ using scalar = double;
 
 template <std::size_t N>
 class Vector {
+
+    template <std::size_t D>
+    friend std::ostream& operator<<(std::ostream& os, const Vector<D>& v);
 public:
     Vector()
     {
@@ -225,5 +228,13 @@ inline Vec3 refract(const Vec3& incident, const Vec3& normal, const float ior)
     return normal * (ior * ndoti - sqrt(disc)) - (I * ior);
 }
 
+template <std::size_t N>
+std::ostream& operator<<(std::ostream& os, const Vector<N>& v)
+{
+    os << "[";
+    for(std::size_t i = 0; i < N; i++)
+        std::cout << v[i] << (i == N - 1 ? "]" : ", ");
+    return os;
+}
 
 #endif

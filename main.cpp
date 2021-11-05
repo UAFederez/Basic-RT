@@ -44,7 +44,7 @@ Vec3 rotate_y(const Vec3& v, const float theta)
 Vec3 color(const Ray& r, const Scene& world, int depth)
 {
     HitRecord rec = {};
-    if(world.anything_hit_by_ray(r, 1e-3, FLT_MAX, rec))
+    if(world.anything_hit(r, 1e-3, FLT_MAX, rec))
     {
         Ray  scattered;
         Vec3 attenuation;
@@ -116,7 +116,7 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
 // Very basic, not good
 void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Primitive*>* scene)
 {
-    Vec3 translate = Vec3({ 0.0, 2.5, 6. });
+    Vec3 translate = Vec3({ 0.0, 0.0, 2.0 });
     std::ifstream input_file(path);
     std::string line;
 
@@ -156,7 +156,6 @@ void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Prim
 
             float x_nrm, y_nrm, z_nrm;
             nrm >> x_nrm >> y_nrm >> z_nrm;
-            std::printf("normal: (%.2f, %.2f, %.2f)\n", x_nrm, y_nrm, z_nrm);
             vertex_normals.push_back(normalize(Vec3({ x_nrm, y_nrm, z_nrm })));
         }
 
@@ -215,7 +214,17 @@ int main()
 
     // Scene objects
     Scene scene = {};
-    load_mesh_obj_file("meshes/teapot.obj", materials[2], &scene.objects);
+
+    Mesh* teapot_mesh = new Mesh();
+
+    load_mesh_obj_file("meshes/teapot.obj", materials[2], &teapot_mesh->primitives);
+    teapot_mesh->calculate_bounding_faces(); 
+
+    scene.meshes.push_back(teapot_mesh);
+
+    //load_mesh_obj_file("meshes/teapot.obj", materials[2], &scene.objects);
+    //for(Primitive* p : teapot_mesh->bounding_volume_faces)
+    //    scene.objects.push_back(p);
 
     const float plane_dist = 18.0;
     const float size       = 10.0f;
@@ -238,17 +247,22 @@ int main()
     const float FLOOR_HALF  = 10.0f;
 
     // floor
-    scene.objects.push_back(new Rectangle3D(Vec3({-FLOOR_HALF, 0.0,  plane_dist}),
-                                            Vec3({ FLOOR_HALF, 0.0,  FLOOR_HALF * 2.0}),
-                                            Vec3({ FLOOR_HALF, 0.0, -FLOOR_HALF * 2.0}),
-                                            Vec3({-FLOOR_HALF, 0.0, -FLOOR_HALF * 2.0}),
-                                            materials[1]));
+    Mesh* floor_mesh = new Mesh();
+    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, -5.0,  plane_dist}),
+                                              Vec3({ FLOOR_HALF, -5.0,  FLOOR_HALF * 2.0}),
+                                              Vec3({ FLOOR_HALF, -5.0, -FLOOR_HALF * 2.0}),
+                                              Vec3({-FLOOR_HALF, -5.0, -FLOOR_HALF * 2.0}),
+                                              materials[1]));
+    //scene.meshes.push_back(floor_mesh);
 
-    scene.objects.push_back(new Sphere(Vec3({ 0.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({ 3.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({-3.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({ 1.75, 1.5, 1.0}), 1.5, materials[0]));
-    scene.objects.push_back(new Sphere(Vec3({-1.75, 1.5, 1.0}), 1.5, materials[1]));
+    //Mesh* sphere1 = new Mesh();
+    //sphere1->add_primitive(new Sphere(Vec3({ 0.0, 0.0, -3.0}), 2.0, materials[0]));
+    //scene.meshes.push_back(sphere1);
+    //scene.meshes.push_back(sphere2);
+    //
+    
+    for(Mesh* mesh : scene.meshes)
+        std::cout << "Checks against " << mesh->bounding_volume_faces.size() << " primitives first\n";
 
     // Image rendering description
     const uint32_t IMAGE_WIDTH  = 1280;
@@ -260,7 +274,7 @@ int main()
     const float view_rot = 90.0f; // 60.0f
     const float dist     = 20.0f; // 8
     Camera main_camera(Vec3({ cos(view_rot * M_PI / 180.0f) * dist, 
-                              8.0,
+                              5.0,
                               sin(view_rot * M_PI / 180.0f) * dist}),
                        Vec3({ 0, 2.5, 6.0}),
                        Vec3({ 0, 1.0, 0}),
@@ -269,7 +283,7 @@ int main()
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12; 
-    const uint32_t NUM_SAMPLES  = 180;
+    const uint32_t NUM_SAMPLES  = 12;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
