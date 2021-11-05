@@ -8,9 +8,9 @@
  **/
 class Triangle : public Primitive {
 public:
-    Triangle(const Vector3& v0, 
-             const Vector3& v1,
-             const Vector3& v2,
+    Triangle(const Vec3& v0, 
+             const Vec3& v1,
+             const Vec3& v2,
              Material* material):
         A(v0), 
         B(v1), 
@@ -20,7 +20,7 @@ public:
     }
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
-        Vector3 normal = normalize(cross(B - A, C - A));
+        Vec3 normal = normalize(cross(B - A, C - A));
 
         // Check if the point is within the supporting plane
         const float denom = -dot(normal, r.direction());
@@ -36,7 +36,7 @@ public:
             return false;
 
         // Outside-inside test
-        Vector3 Q = r.point_at_t(t);
+        Vec3  Q = r.point_at_t(t);
         float CAB = dot(cross((B - A), (Q - A)), normal);
         float CCB = dot(cross((C - B), (Q - B)), normal);
         float CAC = dot(cross((A - C), (Q - C)), normal);
@@ -54,9 +54,9 @@ public:
         return true;
     }
     
-    Vector3 A;
-    Vector3 B;
-    Vector3 C;
+    Vec3 A;
+    Vec3 B;
+    Vec3 C;
     Material* material;
 private:
 };

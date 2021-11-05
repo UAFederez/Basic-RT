@@ -5,7 +5,7 @@
 
 struct Light 
 {
-    Vector3 position;    
+    Vec3 position;    
 };
 
 class Scene {
@@ -38,7 +38,7 @@ public:
             delete obj;
     }
 
-    Vector3 light_position;
+    Vec3 light_position;
     std::vector<Primitive*> objects;
 private:
 };

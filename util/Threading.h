@@ -4,7 +4,7 @@
 #include <vector>
 #include "../graphics/Scene.h"
 #include "../graphics/Camera.h"
-#include "../math/Vector3.h"
+#include "../math/Vector.h"
 
 struct SectionRenderInfo
 {
@@ -18,7 +18,7 @@ struct SectionRenderInfo
 struct ImageRenderInfo
 {
     std::vector<SectionRenderInfo> sections;
-    std::vector<Vector3> pixels;
+    std::vector<Vec3> pixels;
 
     uint32_t section_queue_front;
 

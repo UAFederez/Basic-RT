@@ -5,10 +5,10 @@
 
 class Rectangle3D : public Primitive {
 public:
-    Rectangle3D(const Vector3& v1,
-                const Vector3& v2,
-                const Vector3& v3,
-                const Vector3& v4,
+    Rectangle3D(const Vec3& v1,
+                const Vec3& v2,
+                const Vec3& v3,
+                const Vec3& v4,
           Material* mat):
         A(v1), B(v2), C(v3), D(v4),
         material(mat)
@@ -18,7 +18,7 @@ public:
     virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
     {
         // Calculate the face normal
-        Vector3 normal = normalize(cross(B - A, D - A));
+        Vec3 normal = normalize(cross(B - A, D - A));
 
         // Check if ray intersects the supporting plane
         const float denom = -dot(normal, r.direction());
@@ -33,7 +33,7 @@ public:
             return false;
 
         // Outside-inside test
-        Vector3 Q = r.point_at_t(t);
+        Vec3 Q = r.point_at_t(t);
         float c1 = dot(cross((B - A), (Q - A)), normal);
         float c2 = dot(cross((C - B), (Q - B)), normal);
         float c3 = dot(cross((D - C), (Q - C)), normal);
@@ -48,10 +48,10 @@ public:
         rec.material_ptr = material;
         return true;
     }
-    Vector3 A;
-    Vector3 B;
-    Vector3 C;
-    Vector3 D;
+    Vec3 A;
+    Vec3 B;
+    Vec3 C;
+    Vec3 D;
     Material* material;
 };
 

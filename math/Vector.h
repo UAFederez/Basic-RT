@@ -1,7 +1,9 @@
 #ifndef MATH_VECTOR_H
 #define MATH_VECTOR_H
 
-using scalar = float;
+#include "../util/General.h"    // random_float()
+
+using scalar = double;
 
 template <std::size_t N>
 class Vector {
@@ -29,6 +31,11 @@ public:
         for(std::size_t i = 0; i < N; i++)
             comp[i] -= v2[i];
         return *this;
+    }
+
+    inline Vector operator-() const
+    {
+        return (*this * -1);
     }
 
     inline Vector& operator *=(const scalar f)
@@ -86,6 +93,12 @@ public:
     inline scalar magnitude() const
     {
         return sqrt(magnitude_squared());
+    }
+
+    inline Vector& normalize()
+    {
+        *this /= magnitude();
+        return *this;
     }
 
     // TODO: Add range check in the future
@@ -175,4 +188,40 @@ inline Vector<N> operator/(const scalar f, const Vector<N>& v1)
 {
     return v1 / f;
 }
+
+template <std::size_t N>
+inline Vector<N> normalize(const Vector<N>& v)
+{
+    return v / v.magnitude();
+}
+
+template <std::size_t N>
+inline Vector<N> reflect(const Vector<N>& vec, const Vector<N>& normal)
+{
+    return vec - 2 * dot(vec, normal) * normal;
+}
+
+inline Vec3 random_in_unit_sphere()
+{
+    Vec3 point;
+    do {
+        point = 2.0 * Vec3({ random_float(), 
+                             random_float(), 
+                             random_float() }) - Vec3({1.0, 1.0, 1.0});
+    } while(point.magnitude_squared() >= 1.0f);
+    return point;
+}
+
+inline Vec3 refract(const Vec3& incident, const Vec3& normal, const float ior)
+{
+    Vec3 I   = normalize(incident);
+    float ndoti = dot(I, normal);
+    float disc  = 1 - (ior * ior) * (1 - (ndoti * ndoti));
+    if(disc < 0)
+        return Vec3({0.0, 0.0, 0.0});
+
+    return normal * (ior * ndoti - sqrt(disc)) - (I * ior);
+}
+
+
 #endif
