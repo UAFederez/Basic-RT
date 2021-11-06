@@ -26,6 +26,7 @@ public:
     virtual ~Material()
     {
     }
+    bool is_double_sided = false;
 };
 
 class Emissive : public Material {
@@ -33,6 +34,7 @@ public:
     Emissive(const Vec3& col):
         color(col)
     {
+        is_double_sided = true;
     }
 
     virtual Vec3 emitted() const

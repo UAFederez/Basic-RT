@@ -28,7 +28,8 @@ public:
 
         // TODO: maybe add option for single vs. double-sided
         // fabs to allow viewing from both sides
-        if(denom < 1e-3)
+        //
+        if(denom < 1e-3 && !material->is_double_sided)
             return false;
 
         const float t = dot(normal, r.origin() - A) / denom;
@@ -57,6 +58,9 @@ public:
            c_nrm.magnitude_squared() != 0 )
             normal = (a_nrm * alpha) + (b_nrm * beta) + (c_nrm * gamma);
 
+        if(denom < 0 && material->is_double_sided)
+            normal = -normal;
+
         rec.uv           = Vec2({ beta, gamma });
         rec.t            = t;
         rec.point_at_t   = r.point_at_t(rec.t);
@@ -74,19 +78,11 @@ public:
 
         for(const Vec3 v : vertices)
         {
-            if(v.x() < low_far.x())
-                low_far[0] = v.x();
-            if(v.y() < low_far.y())
-                low_far[1] = v.y();
-            if(v.z() < low_far.z())
-                low_far[2] = v.z();
+            for(int i = 0; i < 3; i++)
+                low_far[i] = std::min(low_far[i], v[i]);
 
-            if(v.x() > up_near.x())
-                up_near[0] = v.x();
-            if(v.y() > up_near.y())
-                up_near[1] = v.y();
-            if(v.z() > up_near.z())
-                up_near[2] = v.z();
+            for(int i = 0; i < 3; i++)
+                up_near[i] = std::max(up_near[i], v[i]);
         }
 
         return BoundsDefinition { low_far, up_near };

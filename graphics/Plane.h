@@ -13,6 +13,7 @@ public:
         const float denom = -dot(normal, r.direction());
         if(denom > 1e-6)
         {
+            printf("HIT PLANE\n");
             const float t = dot(normal, r.origin() - origin) / denom;
             if(t_min < t && t < t_max)
             {
