@@ -13,6 +13,7 @@ struct SectionRenderInfo
     uint32_t tile_x;
     uint32_t tile_y;
     bool     is_finished;
+    bool     in_progress;
 };
 
 struct ImageRenderInfo
