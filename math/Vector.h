@@ -2,6 +2,8 @@
 #define MATH_VECTOR_H
 
 #include <cassert>
+#include <array>
+#include <iostream>
 #include "../util/General.h"    // random_float()
 
 // For MSVC support

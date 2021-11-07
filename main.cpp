@@ -43,7 +43,7 @@ Vec3 rotate_y(const Vec3& v, const float theta)
                                    
 }
 
-inline Color color(const Ray& r, const Scene& world, int depth)
+Color color(const Ray& r, const Scene& world, int depth)
 {
     HitRecord rec = {};
     if(world.anything_hit(r, 1e-3, FLT_MAX, rec))
@@ -63,7 +63,7 @@ inline Color color(const Ray& r, const Scene& world, int depth)
     }
     //return Vec3({ 0.001, 0.001, 0.001 });
     Vec3 unit_dir = normalize(r.direction());
-    float t = 0.5 * (unit_dir.y() + 1.0f);
+    double t = 0.5 * (unit_dir.y() + 1.0);
     return (1.0 - t) * Color({ 0.02, 0.01, 0.01 }) + t * Color({0.01, 0.01, 0.02});
 }
 
@@ -233,7 +233,7 @@ int main()
     materials.push_back(new Dielectric(1.5));
 
     materials.push_back(new Lambertian(Color({0.5, 0.5, 0.5})));
-    materials.push_back(new Emissive(Color({1.0, 1.0, 1.0})));
+    materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
 
     materials.push_back(new Emissive(Color({1.0, 0.7, 0.7})));
     materials.push_back(new Emissive(Color({0.7, 0.7, 1.0})));
@@ -253,7 +253,7 @@ int main()
 
     Mesh* model_mesh2 = new Mesh();
     load_mesh_obj_file("meshes/monkey.obj", 
-                        materials[3], 
+                        materials[4], 
                         &model_mesh2->primitives,
                         Vec3({ -0.5, 0.5, 0.0 }));
     model_mesh2->calculate_bounding_faces(); 
@@ -390,7 +390,7 @@ int main()
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12;
-    const uint32_t NUM_SAMPLES  = 1;
+    const uint32_t NUM_SAMPLES  = 12;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
@@ -487,9 +487,12 @@ int main()
                 const int ypos = IMAGE_HEIGHT - 1 - y;
                 const int xpos = x;
                 const Vec3* pixel = &thread_control.image.pixels[ypos * IMAGE_WIDTH + xpos];
-                output.setPixel(x, y, sf::Color(255.99 * sqrt(pixel->x()), 
-                                                255.99 * sqrt(pixel->y()), 
-                                                255.99 * sqrt(pixel->z())));
+
+                int r = std::min(int(255.99 * sqrt(pixel->r())), 255);
+                int g = std::min(int(255.99 * sqrt(pixel->g())), 255);
+                int b = std::min(int(255.99 * sqrt(pixel->b())), 255);
+
+                output.setPixel(x, y, sf::Color(r, g, b));
             }
         }
         unlock_mutex(&thread_control);
@@ -534,11 +537,10 @@ int main()
 
     for(Vec3& pixel : thread_control.image.pixels)
     {
-        pixel = Vec3({sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z())});
-
-        int ir = std::min(int(255.99 * pixel.z()), 255);
-        int ig = std::min(int(255.99 * pixel.y()), 255);
-        int ib = std::min(int(255.99 * pixel.x()), 255);
+        // Because .BMP file format stores image pixel colors in BGR format
+        int ir = std::min(int(255.99 * sqrt(pixel.b())), 255);
+        int ig = std::min(int(255.99 * sqrt(pixel.g())), 255);
+        int ib = std::min(int(255.99 * sqrt(pixel.r())), 255);
 
         image_pixels.push_back(ir);
         image_pixels.push_back(ig);

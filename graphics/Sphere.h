@@ -7,51 +7,15 @@ class Sphere : public Primitive {
 public:
     Sphere() {}
 
-    Sphere(const Vec3& center, const float radius, Material* material):
-        center(center), radius(radius), material(material) {}
-
-    virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
+    Sphere(const Vec3& center, 
+           const float radius, 
+           Material* material):
+        center(center), radius(radius), material(material) 
     {
-        Vec3 oc = r.origin() - center;
-        float a = dot(r.direction(), r.direction());
-        float b = dot(oc, r.direction());
-        float c = dot(oc, oc) - radius * radius;
-        float discriminant = b * b - (a * c);
-
-        if(discriminant > 0)
-        {
-            float temp = (-b - sqrt(discriminant)) / (a); 
-            if(t_min < temp && temp < t_max)
-            {
-                rec.t            = temp;
-                rec.point_at_t   = r.point_at_t(temp);
-                rec.normal       = (rec.point_at_t - center) / radius;
-                rec.material_ptr = material;
-                return true;
-            }
-            temp = (-b + sqrt(discriminant)) / (a);
-            if(t_min < temp && temp < t_max)
-            {
-                rec.t            = temp;
-                rec.point_at_t   = r.point_at_t(temp);
-                rec.normal       = (rec.point_at_t - center) / radius;
-                rec.material_ptr = material;
-                return true;
-            }
-        }
-        return false;
     }
 
-    BoundsDefinition get_bounds() const
-    {
-        return BoundsDefinition {
-            center - Vec3({ radius, radius, radius }),
-            center + Vec3({ radius, radius, radius })
-        };
-    }
-
-    ~Sphere() {
-    }
+    virtual bool hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const;
+    BoundsDefinition get_bounds() const;
 private:
     Vec3      center;
     float     radius;

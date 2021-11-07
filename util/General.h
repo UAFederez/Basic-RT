@@ -2,6 +2,7 @@
 #define UTIL_GENERAL_H
 
 #include <chrono>
+#include <random>
 
 inline double random_float(const float min = 0.0, const float max = 1.0)
 {
