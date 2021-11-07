@@ -81,7 +81,7 @@ public:
         Vec3 reflected = reflect(normalize(ray_in.direction()), rec.normal);
         scattered   = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());
         attenuation = albedo;
-        return dot(scattered.direction(), rec.normal) > 0;
+        return true;
     }
     Vec3 albedo;
     float   fuzziness;
@@ -114,10 +114,7 @@ public:
         attenuation    = Vec3({1.0, 1.0, 1.0});
 
         if(refracted.magnitude_squared() == 0) 
-        {
             scattered = Ray(rec.point_at_t, reflected);
-            return false;
-        }
         else
             scattered = Ray(rec.point_at_t, refracted);
 

@@ -56,7 +56,7 @@ public:
         if(a_nrm.magnitude_squared() != 0 &&
            b_nrm.magnitude_squared() != 0 &&
            c_nrm.magnitude_squared() != 0 )
-            normal = (a_nrm * alpha) + (b_nrm * beta) + (c_nrm * gamma);
+            normal = normalize((a_nrm * alpha) + (b_nrm * beta) + (c_nrm * gamma));
 
         if(denom < 0 && material->is_double_sided)
             normal = -normal;
