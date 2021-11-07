@@ -42,12 +42,20 @@ public:
         return false;
     }
 
+    BoundsDefinition get_bounds() const
+    {
+        return BoundsDefinition {
+            center - Vec3({ radius, radius, radius }),
+            center + Vec3({ radius, radius, radius })
+        };
+    }
+
     ~Sphere() {
     }
 private:
     Vec3      center;
     float     radius;
-    Material* material;
+    Material* material = nullptr;
 };
 
 #endif

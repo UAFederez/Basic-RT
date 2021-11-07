@@ -1,3 +1,5 @@
+#include <SFML/Graphics.hpp>
+
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -32,7 +34,7 @@
 
 Vec3 rotate_y(const Vec3& v, const float theta)
 {
-    const float rad = theta * M_PI / 180.0f;
+    const float rad = theta * k_PI / 180.0f;
     return Vec3({ 
                     dot( v, Vec3({ cos(rad), 0.0, -sin(rad) }) ),
                     dot( v, Vec3({ 0.0, 1.0, 0.0 }) ),
@@ -41,16 +43,16 @@ Vec3 rotate_y(const Vec3& v, const float theta)
                                    
 }
 
-Vec3 color(const Ray& r, const Scene& world, int depth)
+inline Color color(const Ray& r, const Scene& world, int depth)
 {
     HitRecord rec = {};
-    if(world.anything_hit_by_ray(r, 1e-3, FLT_MAX, rec))
+    if(world.anything_hit(r, 1e-3, FLT_MAX, rec))
     {
-        Ray  scattered;
-        Vec3 attenuation;
+        Ray   scattered;
+        Color attenuation;
         
         if(depth > 50)
-           return Vec3({ 0.0, 0.0, 0.0 }); 
+           return Color({ 0.0, 0.0, 0.0 }); 
         
         Vec3 emitted = rec.material_ptr->emitted();
 
@@ -59,7 +61,10 @@ Vec3 color(const Ray& r, const Scene& world, int depth)
 
         return emitted;
     }
-    return Vec3({ 0.7, 0.7, 0.8 }); // TODO: add ambient color to world parameters
+    //return Vec3({ 0.001, 0.001, 0.001 });
+    Vec3 unit_dir = normalize(r.direction());
+    float t = 0.5 * (unit_dir.y() + 1.0f);
+    return (1.0 - t) * Color({ 0.02, 0.01, 0.01 }) + t * Color({0.01, 0.01, 0.02});
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -83,8 +88,11 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
         {
             const uint32_t bounds_x = current_section->tile_x + current_section->tile_width;
             const uint32_t bounds_y = current_section->tile_y + current_section->tile_height;
-            const float NS_DENOM    = 1 / float(image->num_samples);
+            const double   NS_DENOM = 1 / double(image->num_samples);
+            const double   IW_DENOM = 1 / double(image->image_width);
+            const double   IH_DENOM = 1 / double(image->image_height);
 
+            current_section->in_progress = true;
             for(uint32_t y = current_section->tile_y; y < bounds_y; y++ )
             {
                 for(uint32_t x = current_section->tile_x; x < bounds_x; x++ )
@@ -92,8 +100,8 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                     Vec3 pixel = {};
                     for(uint32_t i = 0; i < image->num_samples; i++)
                     {
-                        float u = float(x + random_float()) / float(image->image_width);
-                        float v = float(y + random_float()) / float(image->image_height);
+                        double u = double(x + random_float()) * IW_DENOM;
+                        double v = double(y + random_float()) * IH_DENOM;
 
                         Ray r  = image->camera->get_ray(u, v);
                         pixel += color(r, *image->world, 0);
@@ -103,6 +111,7 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                 }
             }
             current_section->is_finished = true;
+            current_section->in_progress = false;
             current_section = NULL;
         } else
             break;
@@ -112,17 +121,33 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
 }
 
 // Very basic, not good
-void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Primitive*>* scene)
+void load_mesh_obj_file(const std::string& path, 
+                        Material* mat, 
+                        std::vector<Primitive*>* scene,
+                        const Vec3 move   = Vec3({ 0.0, 0.0, 0.0}))
 {
-    Vec3 translate = Vec3({ 0.0, 2.0, 6.0 });
+    Vec3 translate = Vec3({ 0.0, 0.0, 0.0 }) + move;
     std::ifstream input_file(path);
     std::string line;
 
+    if(!input_file)
+    {
+        std::printf("[ERROR] Could not read \'%s\'. Exiting now...", path.c_str());
+        return ;
+    }
+
     int num_poly = 0;
+
     int tri_indices[3];
     int verts_read_so_far = 0;
-    std::vector<Vec3> vertices = {};
 
+    int nrm_indices[3];
+    int norms_read_so_far = 0;
+
+    std::vector<Vec3> vertices       = {};
+    std::vector<Vec3> vertex_normals = {};
+
+    std::string dummy_str;
     int  dummy; // To consume unneeded fields for now
     char slash;
     while(std::getline(input_file, line))
@@ -138,7 +163,16 @@ void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Prim
             istr >> slash;
             float x_pos, y_pos, z_pos;
             istr >> x_pos >> y_pos >> z_pos;
-            vertices.push_back(Vec3({ x_pos, y_pos, z_pos }));
+            vertices.push_back(0.25 * Vec3({ x_pos, y_pos, z_pos }));
+        }
+
+        if(line.find("vn") == 0)
+        {
+            std::istringstream nrm(line.substr(2));
+
+            float x_nrm, y_nrm, z_nrm;
+            nrm >> x_nrm >> y_nrm >> z_nrm;
+            vertex_normals.push_back(normalize(Vec3({ x_nrm, y_nrm, z_nrm })));
         }
 
         // Reading a face
@@ -153,150 +187,209 @@ void load_mesh_obj_file(const std::string& path, Material* mat, std::vector<Prim
                 if(!std::isspace(istr.peek()))
                 {
                     istr >> slash;      // consume '/'
-                    istr >> dummy;
-                    istr >> slash;
-                    istr >> dummy;
+
+                    if(istr.peek() == '/')
+                        istr >> slash;      // consume '/'
+                    else
+                    {
+                        istr >> dummy;      // vertex texture index
+                        istr >> slash;
+                    }
+                    istr >> nrm_indices[norms_read_so_far++];      // vertex normal index
                 }
             }
 
             if(verts_read_so_far == 3)
             {
-                scene->push_back(new Triangle(vertices[tri_indices[0] - 1] + translate,
-                                              vertices[tri_indices[1] - 1] + translate,
-                                              vertices[tri_indices[2] - 1] + translate,
-                                              mat));
+                Triangle* tri = new Triangle(vertices[tri_indices[0] - 1] + translate,
+                                             vertices[tri_indices[1] - 1] + translate,
+                                             vertices[tri_indices[2] - 1] + translate,
+                                             mat);
+
+                tri->a_nrm = vertex_normals[nrm_indices[0] - 1];
+                tri->b_nrm = vertex_normals[nrm_indices[1] - 1];
+                tri->c_nrm = vertex_normals[nrm_indices[2] - 1];
+
+                scene->push_back(tri);
                 num_poly++;
+
                 verts_read_so_far = 0;
+                norms_read_so_far = 0;
             } // TODO: Otherwise it must be an error in the file
         }
 
         //std::cout << line << '\n';
     }
+    std::cout << path << " has " << num_poly << " faces.\n";
+    //std::cout << "DONE READING...\n";
 }
 
 int main()
 {
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Vec3({0.5, 0.5, 0.5}), 0.10));
-    materials.push_back(new Metal(Vec3({0.8, 0.8, 0.8}), 0.10));
-    materials.push_back(new Dielectric(2.4));
-    materials.push_back(new Lambertian(Vec3({0.9, 0.5, 0.9})));
-    materials.push_back(new Emissive(Vec3({10.0, 10.0, 10.0})));
-    materials.push_back(new Emissive(Vec3({1.0, 0.7, 0.7})));
-    materials.push_back(new Metal(Vec3({0.8, 0.8, 0.9}), 0.05));
+    materials.push_back(new Metal(Color({1.0, 1.0, 1.0}), 0.10));
+    materials.push_back(new Metal(Color({0.9, 0.9, 0.9}), 0.1));
+    materials.push_back(new Dielectric(1.5));
+
+    materials.push_back(new Lambertian(Color({0.5, 0.5, 0.5})));
+    materials.push_back(new Emissive(Color({1.0, 1.0, 1.0})));
+
+    materials.push_back(new Emissive(Color({1.0, 0.7, 0.7})));
+    materials.push_back(new Emissive(Color({0.7, 0.7, 1.0})));
+    materials.push_back(new Metal(Color({0.8, 0.8, 0.9}), 0.05));
+    materials.push_back(new Lambertian(Color({0.2, 0.2, 0.2})));
 
     // Scene objects
     Scene scene = {};
 
-    const float plane_dist = 20.0;
-    const float size       = 10.0f;
-    scene.objects.push_back(new Rectangle3D(Vec3({-size / 2.0, 0.0,  plane_dist}),
-                                            Vec3({-size / 2.0, size, plane_dist}),
-                                            Vec3({ size / 2.0, 0.0,  plane_dist}),
-                                            Vec3({ size / 2.0, size, plane_dist}),
-                                            materials[4]));
-    
-    load_mesh_obj_file("meshes/teapot.obj", materials[2], &scene.objects);
+    Mesh* model_mesh = new Mesh();
+    load_mesh_obj_file("meshes/monkey-flat.obj", 
+                        materials[2], 
+                        &model_mesh->primitives,
+                        Vec3({ 0, 0.5, 0.0 }));
+    model_mesh->calculate_bounding_faces(); 
+    scene.meshes.push_back(model_mesh);
 
-    const float HALF_SIDE = 1.1f;
-    const float height    = 8.0f;
+    Mesh* model_mesh2 = new Mesh();
+    load_mesh_obj_file("meshes/monkey.obj", 
+                        materials[3], 
+                        &model_mesh2->primitives,
+                        Vec3({ -0.5, 0.5, 0.0 }));
+    model_mesh2->calculate_bounding_faces(); 
+    scene.meshes.push_back(model_mesh2);
+
+    Mesh* model_mesh3 = new Mesh();
+    load_mesh_obj_file("meshes/monkey.obj", 
+                        materials[1], 
+                        &model_mesh3->primitives,
+                        Vec3({  0.5, 0.5, 0.0 }));
+    model_mesh3->calculate_bounding_faces(); 
+    scene.meshes.push_back(model_mesh3);
+
+
+    //Mesh* model_mesh2 = new Mesh();
+
+    //load_mesh_obj_file("meshes/superman-low-poly-smooth.obj", 
+    //                    materials[2], 
+    //                    &model_mesh2->primitives,
+    //                    Vec3({ 0, 0.0, 0.0 }));
+    //model_mesh2->calculate_bounding_faces(); 
+
+    //scene.meshes.push_back(model_mesh2);
+
+    const float plane_dist = 18.0;
+    const float FLOOR_HALF = 10.0f;
+
+    Mesh* lighting1 = new Mesh();
+    lighting1->add_primitive(new Sphere(Vec3({-1.0, 2, 2}), 1.0, materials[5]));
+    scene.meshes.push_back(lighting1);
+
+    Mesh* lighting2 = new Mesh();
+    lighting1->add_primitive(new Sphere(Vec3({2.0, 2, -2}), 1.0, materials[6]));
+    scene.meshes.push_back(lighting2);
+
+    // floor
+    const float size       = 10.0f;
+
+    const float HALF_SIDE = 0.6f;
+    const float height    = 2.0f;
+    const float CEIL_HEIGHT = 50.0f;
+    const float CEIL_HALF   = 10.0f;
+
+    Mesh* floor_mesh = new Mesh();
+    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, 0.25,  plane_dist}),
+                                              Vec3({ FLOOR_HALF, 0.25,  FLOOR_HALF * 2.0}),
+                                              Vec3({ FLOOR_HALF, 0.25, -FLOOR_HALF * 2.0}),
+                                              Vec3({-FLOOR_HALF, 0.25, -FLOOR_HALF * 2.0}),
+                                              materials[8]));
+    scene.meshes.push_back(floor_mesh);
 
     const auto  transform = [](const Vec3& v, const float theta) 
     {
-        const Vec3 anchor = Vec3({ 0.0, 0.0, -10 });
+        const Vec3 anchor = Vec3({ 0.0, 0.0, (v.z() <= 0.0 ? -3.0 : 3.0) });
         Vec3 translated   = v + anchor;
         Vec3 rotated      = rotate_y(translated, theta);
         Vec3 reverted     = rotated - anchor;
 
         return reverted;
     };
-    /**
     float theta = -30;
     
     for(int i = 0; i < 5; i++)
     {
-        Material* mat = new Metal(Vector3(0.7 + random_float(0.0, 0.2),
-                                          0.7 + random_float(0.0, 0.2),
-                                          0.7 + random_float(0.0, 0.2)));
+        Mesh* lighting_rect = new Mesh();
 
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             mat));
+        const float ldist = 5.0;
+        const float y_up  = 0.25;
 
-        scene.objects.push_back(new Triangle(transform(Vector3(-HALF_SIDE, 0.0, 0.0), theta),
-                                             transform(Vector3( HALF_SIDE, height, 0.0), theta),
-                                             transform(Vector3(-HALF_SIDE, height, 0.0), theta),
-                                             mat));
+        const float t = (float(i) / float(5));
+
+        /**
+        Material* mat = new Metal(Vec3({ (1.0 - t) * (0.75 + random_float(0, 0.25)),
+                                         0.25 + random_float(0, 0.1),
+                                         t * 0.75 + random_float(0, 0.25) }), 0.0 );
+                                            
+        lighting_rect->add_primitive(new Triangle(transform(Vec3({ -HALF_SIDE, y_up + 0.0, -ldist }), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + 0.0, -ldist}), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + height, -ldist }), theta * 2),
+                                                  mat));
+
+        lighting_rect->add_primitive(new Triangle(transform(Vec3({ -HALF_SIDE, y_up + 0.0, -ldist }), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + height, -ldist }), theta * 2),
+                                                  transform(Vec3({ -HALF_SIDE, y_up + height, -ldist }), theta * 2),
+                                                  mat));
         materials.push_back(mat);
+
+        // Front lights
+        Material* mat2 = new Emissive(Vec3({ 0.75 + random_float(0, 0.25),
+                                             0.75 + random_float(0, 0.25),
+                                             0.75 + random_float(0, 0.25) }) );
+                                            
+
+        lighting_rect->add_primitive(new Triangle(transform(Vec3({ -HALF_SIDE, y_up + 0.0, 5.0 }), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + 0.0, 5.0}), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + height, 5.0 }), theta * 2),
+                                                  mat2));
+
+        lighting_rect->add_primitive(new Triangle(transform(Vec3({ -HALF_SIDE, y_up + 0.0, 5.0 }), theta * 2),
+                                                  transform(Vec3({  HALF_SIDE, y_up + height, 5.0 }), theta * 2),
+                                                  transform(Vec3({ -HALF_SIDE, y_up + height, 5.0 }), theta * 2),
+                                                  mat2));
+        materials.push_back(mat2);
         theta += 15;
+
+        scene.meshes.push_back(lighting_rect);
+        **/
     }
-    **/
 
-    const float CEIL_HEIGHT = 50.0f;
-    const float CEIL_HALF   = 10.0f;
-    const float FLOOR_HALF  = 10.0f;
-
-    // floor
-    scene.objects.push_back(new Triangle(Vec3({-FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         materials[0]));
-    scene.objects.push_back(new Triangle(Vec3({-FLOOR_HALF, 0, FLOOR_HALF}),
-                                         Vec3({ FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         Vec3({-FLOOR_HALF, 0,-FLOOR_HALF * 2.0}),
-                                         materials[0]));
-
-    // Front light
-    const float FRONT_HALF_H = 20.0f;
-    const float FRONT_HALF_V = 20.0f;
-    scene.objects.push_back(new Triangle(Vec3({ FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         materials[4]));
-
-    scene.objects.push_back(new Triangle(Vec3({ FRONT_HALF_H,-FRONT_HALF_V, 50.0}),
-                                         Vec3({-FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         Vec3({ FRONT_HALF_H, FRONT_HALF_V, 50.0}),
-                                         materials[4]));
-
-
-    scene.objects.push_back(new Triangle(Vec3({-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         materials[4]));
-    scene.objects.push_back(new Triangle(Vec3({-CEIL_HALF, CEIL_HEIGHT,-CEIL_HALF}),
-                                         Vec3({ CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         Vec3({-CEIL_HALF, CEIL_HEIGHT, CEIL_HALF * 2.0}),
-                                         materials[4]));
-
-    scene.objects.push_back(new Sphere(Vec3({ 0.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({ 3.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({-3.0, 0.75, 3.0}), 0.75, materials[2]));
-    scene.objects.push_back(new Sphere(Vec3({ 1.75, 1.5, 1.0}), 1.5, materials[0]));
-    scene.objects.push_back(new Sphere(Vec3({-1.75, 1.5, 1.0}), 1.5, materials[1]));
-
+    //scene.meshes.push_back(sphere2);
+    //
+    //
+    //scene.objects.push_back(new Sphere(Vec3({ 0.0, 0.0, -3.0}), 2.0, materials[0]));
+    
+    for(Mesh* mesh : scene.meshes)
+        std::cout << "Checks against " << mesh->bounding_volume_faces.size() << " primitives first\n";
 
     // Image rendering description
-    const uint32_t IMAGE_WIDTH  = 1280;
+    const uint32_t IMAGE_WIDTH  = 960;
     const uint32_t IMAGE_HEIGHT = 720;
-    const uint32_t TILE_WIDTH   = 16;
-    const uint32_t TILE_HEIGHT  = 16;
+    const uint32_t TILE_WIDTH   = 64;
+    const uint32_t TILE_HEIGHT  = 64;
 
     // Camera description
-    const float view_rot = 90.0f; // 60.0f
-    const float dist     = 20.0f; // 8
-    Camera main_camera(Vec3({ cos(view_rot * M_PI / 180.0f) * dist, 
-                                4.0,
-                                sin(view_rot * M_PI / 180.0f) * dist}),
-                       Vec3({ 0, 2.5, 6.0}),
+    const float view_rot = 60.0f; // 60.0f
+    const float dist     = 1.75; // 8
+    Camera main_camera(Vec3({ cos(view_rot * k_PI / 180.0f) * dist, 
+                              1.0,
+                              sin(view_rot * k_PI / 180.0f) * dist}),
+                       Vec3({ 0, 0.5, -0.1 }),
                        Vec3({ 0, 1.0, 0}),
-                       30.0f, // 30
+                       45.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
-    const uint32_t MAX_THREADS  = 12; 
+    const uint32_t MAX_THREADS  = 12;
     const uint32_t NUM_SAMPLES  = 1;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
@@ -343,6 +436,7 @@ int main()
             section.tile_x      = tile_x * TILE_WIDTH;
             section.tile_y      = tile_y * TILE_HEIGHT;
             section.is_finished = false;
+            section.in_progress = false;
 
             if(tile_x == WIDTH_IN_TILES - 1)
                 section.tile_width  += ADDITIONAL_W;
@@ -367,37 +461,77 @@ int main()
     }
     std::cout << "[SUCCESS] Successfully created all threads\n";
 
-    const uint32_t BAR_WIDTH = 71;
-    char  progress_bar[BAR_WIDTH];
-    
-    progress_bar[BAR_WIDTH - 1] = '\0';
-    memset(progress_bar,' ',BAR_WIDTH - 1);
-    while(true)
-    {
-        uint32_t total    = thread_control.image.sections.size();
-        uint32_t finished = 0;
+    // GUI Display
+    sf::RenderWindow window(sf::VideoMode(IMAGE_WIDTH, IMAGE_HEIGHT), "Render");
+    sf::Image output;
+    output.create(IMAGE_WIDTH, IMAGE_HEIGHT, sf::Color::Black);
 
+    bool output_done = false;    
+    while(window.isOpen())
+    {
+        sf::Event event;
+        while(window.pollEvent(event))
+        {
+            if(event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // Draw
+        window.clear(sf::Color::Black);
+
+        lock_mutex(&thread_control);
+        for(uint32_t y = 0; y < IMAGE_HEIGHT; y++)
+        {
+            for(uint32_t x = 0; x < IMAGE_WIDTH; x++)
+            {
+                const int ypos = IMAGE_HEIGHT - 1 - y;
+                const int xpos = x;
+                const Vec3* pixel = &thread_control.image.pixels[ypos * IMAGE_WIDTH + xpos];
+                output.setPixel(x, y, sf::Color(255.99 * sqrt(pixel->x()), 
+                                                255.99 * sqrt(pixel->y()), 
+                                                255.99 * sqrt(pixel->z())));
+            }
+        }
+        unlock_mutex(&thread_control);
+
+        sf::Texture tex;
+        tex.loadFromImage(output);
+        sf::Sprite sprite;
+        sprite.setTexture(tex);
+        window.draw(sprite);
+
+        uint32_t num_finished = 0;
         for(const SectionRenderInfo& section : thread_control.image.sections)
         {
+            if(section.in_progress)
+            {
+                sf::RectangleShape rect(sf::Vector2f( (uint32_t) section.tile_width, 
+                                                      (uint32_t) section.tile_height ));
+                rect.setFillColor(sf::Color(0, 0, 0, 0.0));
+                rect.setPosition (section.tile_x , IMAGE_HEIGHT - section.tile_y - section.tile_height);
+                rect.setOutlineThickness(1.0);
+                rect.setOutlineColor(sf::Color(255.0, 255.0, 255.0));
+
+                window.draw(rect);
+            }
             if(section.is_finished)
-                finished++;
+                num_finished++;
         }
-
-        const uint32_t num_bars = (float(finished) / float(total)) * (BAR_WIDTH - 1);
-        memset(progress_bar,'#', num_bars);
-
-        std::cout << "Rendering image... [" << progress_bar << "]" 
-                  << "[" << finished << "/" << total << "]" << '\r';
-
-        if(finished == total)
+        
+        if(num_finished == thread_control.image.sections.size() && !output_done)
         {
-            std::cout << '\n';
-            break;
+            auto time_render_end   = high_resolution_clock::now();
+            auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
+            std::cout << "The render took " << std::fixed << std::setprecision(2)
+                      << time_render_total  << " seconds.\n";
+            output_done = true;
         }
-    }
 
+        window.display();
+
+    }
     join_render_threads(render_threads, NUM_THREADS);
-    
+
     for(Vec3& pixel : thread_control.image.pixels)
     {
         pixel = Vec3({sqrt(pixel.x()), sqrt(pixel.y()), sqrt(pixel.z())});
@@ -409,13 +543,8 @@ int main()
         image_pixels.push_back(ir);
         image_pixels.push_back(ig);
         image_pixels.push_back(ib);
+
     }
-    auto time_render_end   = high_resolution_clock::now();
-    auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
-
-    std::cout << "The render took " << std::fixed << std::setprecision(2)
-              << time_render_total  << " seconds.\n";
-
     write_bmp_to_file("output.bmp", image_pixels.data(), IMAGE_WIDTH, IMAGE_HEIGHT, 3);
 
     // Cleanup

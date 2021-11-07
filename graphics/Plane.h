@@ -26,9 +26,18 @@ public:
         }
         return false;
     }
+    
+    BoundsDefinition get_bounds() const
+    {
+        return BoundsDefinition {
+            Vec3({ -FLT_MAX, -FLT_MAX, -FLT_MAX }),
+            Vec3({  FLT_MAX,  FLT_MAX,  FLT_MAX }),
+        };
+    }
+
     Vec3 normal;
     Vec3 origin;
-    Material* material;
+    Material* material = nullptr;
 };
 
 #endif
