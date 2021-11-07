@@ -12,7 +12,7 @@ public:
            const float    fov,
            const float    aspect)
     {
-        float theta       = fov * M_PI / 180.0;
+        float theta       = fov * k_PI / 180.0;
         float half_height = tan(theta / 2.0);
         float half_width  = aspect * half_height;
 

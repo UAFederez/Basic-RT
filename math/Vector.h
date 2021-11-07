@@ -4,13 +4,16 @@
 #include <cassert>
 #include "../util/General.h"    // random_float()
 
+// For MSVC support
+const double k_PI = 3.14159265358979323846264338327950288;
+
 using scalar = double;
 
 template <std::size_t N>
 class Vector {
-
     template <std::size_t D>
     friend std::ostream& operator<<(std::ostream& os, const Vector<D>& v);
+
 public:
     Vector()
     {
@@ -42,14 +45,14 @@ public:
         return (*this * -1);
     }
 
-    inline Vector& operator *=(const scalar f)
+    inline Vector& operator*=(const scalar f)
     {
         for(std::size_t i = 0; i < N; i++)
             comp[i] *= f;
         return *this;
     }
 
-    inline Vector& operator /=(const scalar f)
+    inline Vector& operator/=(const scalar f)
     {
         const scalar denom = (scalar) 1 / f;
 
@@ -58,7 +61,7 @@ public:
         return *this;
     }
 
-    inline scalar dot(const Vector<N>& v2)
+    inline scalar dot(const Vector<N>& v2) const
     {
         scalar result = 0.0;
         for(std::size_t i = 0; i < N; i++)
@@ -66,7 +69,7 @@ public:
         return result;
     }
 
-    inline Vector<3> cross(const Vector<3>& v2)
+    inline Vector<3> cross(const Vector<3>& v2) const
     {
         return Vector<3>({
             y() * v2.z() - z() * v2.y(),
@@ -75,16 +78,29 @@ public:
         });
     }
 
-    inline scalar x() const { return comp[0]; }
-    inline scalar y() const { return comp[1]; }
-    inline scalar z() const { return comp[2]; }
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 1, scalar>::type x() const { return comp[0]; }
 
-    inline scalar r() const { return comp[0]; }
-    inline scalar g() const { return comp[1]; }
-    inline scalar b() const { return comp[2]; }
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 2, scalar>::type y() const { return comp[1]; }
 
-    inline scalar u() const { return comp[0]; }
-    inline scalar v() const { return comp[1]; }
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 3, scalar>::type z() const { return comp[2]; }
+
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 1, scalar>::type r() const { return comp[0]; }
+
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 2, scalar>::type g() const { return comp[1]; }
+
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 3, scalar>::type b() const { return comp[2]; }
+
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 1, scalar>::type u() const { return comp[0]; }
+
+    template <std::size_t D = N>
+    inline typename std::enable_if< D >= 2, scalar>::type v() const { return comp[1]; }
 
     inline scalar magnitude_squared() const
     {
@@ -105,7 +121,13 @@ public:
         return *this;
     }
 
-    // TODO: Add range check in the future
+    inline scalar* begin() { return &comp[0]; }
+    inline scalar* end()   { return &comp[N]; }
+
+    inline const scalar* begin() const { return &comp[0]; }
+    inline const scalar* end()   const { return &comp[N]; }
+
+    // TODO: Add range check version in the future
 
     inline scalar& operator[](std::size_t i)       { return comp[i]; }
     inline scalar  operator[](std::size_t i) const { return comp[i]; }
@@ -113,8 +135,9 @@ private:
     scalar comp[N];
 };
 
-using Vec2 = Vector<2>;
-using Vec3 = Vector<3>;
+using Vec2  = Vector<2>;
+using Vec3  = Vector<3>;
+using Color = Vector<3>;
 
 inline Vector<3> cross(const Vector<3>& v1, const Vector<3>& v2)
 {
@@ -131,7 +154,6 @@ inline scalar dot(const Vector<N>& v1, const Vector<N>& v2)
     scalar result = 0.0;
     for(std::size_t i = 0; i < N; i++)
         result += v1[i] * v2[i];
-
     return result;
 }
 
@@ -139,39 +161,40 @@ inline scalar dot(const Vector<N>& v1, const Vector<N>& v2)
 template <std::size_t N>
 inline Vector<N> operator+(const Vector<N>& v1, const Vector<N>& v2)
 {
-    return Vector<N>({ v1.x() + v2.x(), 
-                       v1.y() + v2.y(), 
-                       v1.z() + v2.z() });
+    Vector<N> result = v1;
+    for(std::size_t i = 0; i < N; i++)
+        result[i] += v2[i];
+    return result;
 }
 
 template <std::size_t N>
 inline Vector<N> operator-(const Vector<N>& v1, const Vector<N>& v2)
 {
-    return Vector<N>({ v1.x() - v2.x(), 
-                       v1.y() - v2.y(), 
-                       v1.z() - v2.z() });
+    return v1 + (-v2);
 }
 
 template <std::size_t N>
 inline Vector<N> operator*(const Vector<N>& v1, const Vector<N>& v2)
 {
-    return Vector<N>({ v1.x() * v2.x(), 
-                       v1.y() * v2.y(), 
-                       v1.z() * v2.z() });
+    Vector<N> result = v1;
+    for(std::size_t i = 0; i < N; i++)
+        result[i] *= v2[i];
+    return result;
 }
 
 template <std::size_t N>
 inline Vector<N> operator/(const Vector<N>& v1, const Vector<N>& v2)
 {
-    return Vector<N>({ v1.x() / v2.x(), 
-                       v1.y() / v2.y(), 
-                       v1.z() / v2.z() });
+    return v1 * (1.0 / v2);
 }
 
 template <std::size_t N>
 inline Vector<N> operator*(const Vector<N>& v1, const scalar f)
 {
-    return Vector<N>({ v1.x() * f, v1.y() * f, v1.z() * f });
+    Vector<N> result = v1;
+    for(std::size_t i = 0; i < N; i++)
+        result[i] *= f;
+    return result;
 }
 
 template <std::size_t N>
@@ -184,7 +207,7 @@ template <std::size_t N>
 inline Vector<N> operator/(const Vector<N>& v1, const scalar f)
 {
     const float denom = 1.0 / f;
-    return Vector<N>({ v1.x() * denom, v1.y() * denom, v1.z() * denom });
+    return v1 * denom;
 }
 
 template <std::size_t N>
@@ -207,8 +230,8 @@ inline Vector<N> reflect(const Vector<N>& vec, const Vector<N>& normal)
 
 inline Vec3 random_in_unit_sphere()
 {
-    const scalar rand_theta = random_float(0.0, 2 * M_PI);
-    const scalar rand_phi   = random_float(0.0, 2 * M_PI);
+    const scalar rand_theta = random_float(0.0, 2 * k_PI);
+    const scalar rand_phi   = random_float(0.0, 2 * k_PI);
     
     return Vec3({
         cos(rand_theta) * sin(rand_phi),
@@ -219,7 +242,7 @@ inline Vec3 random_in_unit_sphere()
 
 inline Vec3 refract(const Vec3& incident, const Vec3& normal, const float ior)
 {
-    Vec3 I   = normalize(incident);
+    Vec3 I      = normalize(incident);
     float ndoti = dot(I, normal);
     float disc  = 1 - (ior * ior) * (1 - (ndoti * ndoti));
     if(disc < 0)

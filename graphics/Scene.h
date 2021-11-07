@@ -32,19 +32,11 @@ struct Mesh
         {
             BoundsDefinition defn = p->get_bounds();
 
-            if(defn.lower_far_corner.x() < low_far.x())
-                low_far[0] = defn.lower_far_corner.x();
-            if(defn.lower_far_corner.y() < low_far.y())
-                low_far[1] = defn.lower_far_corner.y();
-            if(defn.lower_far_corner.z() < low_far.z())
-                low_far[2] = defn.lower_far_corner.z();
+            for(std::size_t i = 0; i < 3; i++)
+                low_far[i] = std::min(low_far[i], defn.lower_far_corner[i]);
 
-            if(defn.upper_near_corner.x() > up_near.x())
-                up_near[0] = defn.upper_near_corner.x();
-            if(defn.upper_near_corner.y() > up_near.y())
-                up_near[1] = defn.upper_near_corner.y();
-            if(defn.upper_near_corner.z() > up_near.z())
-                up_near[2] = defn.upper_near_corner.z();
+            for(std::size_t i = 0; i < 3; i++)
+                up_near[i] = std::max(up_near[i], defn.upper_near_corner[i]);
         }
 
         // Step 2 : Construct rectangular prism based on corners
@@ -110,7 +102,6 @@ public:
         bool hit_anything  = false;
 
         HitRecord bv_rec   = {};
-        float bv_closest   = t_max;
 
         for(const Mesh* mesh : meshes)
         {
@@ -122,10 +113,7 @@ public:
                 // because a bounding box face is nearer even though the 
                 // area itself may be empty enough to see the further object
                 if(face->hit(r, t_min, FLT_MAX, bv_rec))  
-                {
-                    bv_closest    = temp_rec.t;
                     intersects_bv = true;
-                }
             }
             
             // Reset because bounding face is always at least the same distance
