@@ -60,10 +60,10 @@ Color color(const Ray& r, const Scene& world, int depth)
 
         return emitted;
     }
-    //return Vec3({ 0.001, 0.001, 0.001 });
-    Vec3 unit_dir = normalize(r.direction());
-    double t = 0.5 * (unit_dir.y() + 1.0);
-    return (1.0 - t) * Color({ 1.0, 1.0, 1.00 }) + t * Color({0.7, 0.7, 1.0});
+    return Vec3({ 0.01, 0.01, 0.035 });
+    //Vec3 unit_dir = normalize(r.direction());
+    //double t = 0.5 * (unit_dir.y() + 1.0);
+    //return (1.0 - t) * Color({ 1.0, 1.0, 1.00 }) + t * Color({0.7, 0.7, 1.0});
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -227,28 +227,24 @@ int main()
 {
     // Materials
     std::vector<Material*> materials;
-    materials.push_back(new Metal(Color({1.0, 1.0, 1.0}), 0.10));
-    materials.push_back(new Metal(Color({0.9, 0.9, 0.9}), 0.1));
-    materials.push_back(new Dielectric(1.33));
+    materials.push_back(new Metal(Color({0.9, 0.9, 0.9}), 0.5));
+    materials.push_back(new Lambertian(Color({0.9, 0.9, 0.9})));
+    materials.push_back(new Dielectric(1.5));
 
     materials.push_back(new Lambertian(Color({0.5, 0.5, 0.5})));
-    materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
+    materials.push_back(new Emissive(Color({2.5, 2.25, 2.0})));
 
     materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
     materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
+    materials.push_back(new Lambertian(Color({0.7, 0.2, 0.7})));
+    materials.push_back(new Lambertian(Color({0.23, 0.37, 0.7})));
     materials.push_back(new Metal(Color({0.8, 0.8, 0.9}), 0.05));
-    materials.push_back(new Lambertian(Color({0.2, 0.2, 0.2})));
 
     // Scene objects
     Scene scene = {};
 
     Mesh* model_mesh = new Mesh();
-    load_mesh_obj_file("meshes/monkey.obj", 
-                        materials[1], 
-                        &model_mesh->primitives,
-                        Vec3({ 0, 0.0, 0.0 }));
-    model_mesh->name = "Monkey diffuse";
-    model_mesh->calculate_bounding_faces(); 
+    model_mesh->add_primitive(new Sphere(Vec3({ 0.0, 1.0, 0.0 }), 1.0, materials[2]));
     scene.meshes.push_back(model_mesh);
 
     /**
@@ -285,13 +281,18 @@ int main()
 
     Mesh* lighting1 = new Mesh();
     lighting1->name = "Lighting 1";
-    lighting1->add_primitive(new Sphere(Vec3({-1.0, 2, 2}), 1.0, materials[5]));
+    lighting1->add_primitive(new Sphere(Vec3({ 2.1, 1.0, 0.0}), 1.0, materials[0]));
     scene.meshes.push_back(lighting1);
 
     Mesh* lighting2 = new Mesh();
     lighting2->name = "Lighting 2";
-    lighting2->add_primitive(new Sphere(Vec3({2.0, 2, -2}), 1.0, materials[6]));
+    lighting2->add_primitive(new Sphere(Vec3({-2.1, 1, 0.0}), 1.0, materials[1]));
     scene.meshes.push_back(lighting2);
+
+    Mesh* lighting3 = new Mesh();
+    lighting3->name = "Lighting 2";
+    lighting3->add_primitive(new Sphere(Vec3({ 0.0, 5, -5.0}), 1.0, materials[4]));
+    scene.meshes.push_back(lighting3);
 
     // floor
     const float size       = 10.0f;
@@ -303,10 +304,10 @@ int main()
 
     Mesh* floor_mesh = new Mesh();
     floor_mesh->name = "Floor mesh";
-    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, -0.2,  plane_dist}),
-                                              Vec3({ FLOOR_HALF, -0.2,  FLOOR_HALF * 2.0}),
-                                              Vec3({ FLOOR_HALF, -0.2, -FLOOR_HALF * 2.0}),
-                                              Vec3({-FLOOR_HALF, -0.2, -FLOOR_HALF * 2.0}),
+    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, -0.0,  plane_dist}),
+                                              Vec3({ FLOOR_HALF, -0.0,  FLOOR_HALF * 2.0}),
+                                              Vec3({ FLOOR_HALF, -0.0, -FLOOR_HALF * 2.0}),
+                                              Vec3({-FLOOR_HALF, -0.0, -FLOOR_HALF * 2.0}),
                                               materials[8]));
     scene.meshes.push_back(floor_mesh);
 
@@ -378,25 +379,25 @@ int main()
                                  << mesh->bounding_volume_faces.size() << " primitives first\n";
 
     // Image rendering description
-    const uint32_t IMAGE_WIDTH  = 960;
+    const uint32_t IMAGE_WIDTH  = 1280;
     const uint32_t IMAGE_HEIGHT = 720;
     const uint32_t TILE_WIDTH   = 64;
     const uint32_t TILE_HEIGHT  = 64;
 
     // Camera description
-    const float view_rot = 60.0f; // 60.0f
-    const float dist     = 2.0; // 8
+    const float view_rot = 90.0f; // 60.0f
+    const float dist     =  5.0; // 8
     Camera main_camera(Vec3({ cos(view_rot * k_PI / 180.0f) * dist, 
-                              1.0,
+                              3.0,
                               sin(view_rot * k_PI / 180.0f) * dist}),
-                       Vec3({ 0, 0.5, 0.0 }),
+                       Vec3({ 0, 1.0, 0.0 }),
                        Vec3({ 0, 1.0, 0}),
                        45.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12;
-    const uint32_t NUM_SAMPLES  = 4;
+    const uint32_t NUM_SAMPLES  = 1000;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
