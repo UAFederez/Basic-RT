@@ -87,6 +87,12 @@ public:
     float   fuzziness;
 };
 
+inline double schlick_approx(const double IOR, const double cosine)
+{
+    double R0 = std::pow<double>((1 - IOR) / (1 + IOR), 2);
+    return R0 + ((1 - R0) * std::pow<double>((1 - cosine), 5));
+}
+
 class Dielectric : public Material {
 public:
     Dielectric(const float rel_ior):
@@ -110,13 +116,24 @@ public:
         }
 
         Vec3 refracted = refract(-ray_in.direction(), nrm, ior);
-        Vec3 reflected = reflect(ray_in.direction(), rec.normal);
+        Vec3 reflected = reflect(ray_in.direction(), nrm);
         attenuation    = Vec3({1.0, 1.0, 1.0});
 
         if(refracted.magnitude_squared() == 0) 
             scattered = Ray(rec.point_at_t, reflected);
         else
-            scattered = Ray(rec.point_at_t, refracted);
+        {
+            // Calculate the Fresnel effect based on Schlick's approximation
+            double cosine          = dot(nrm, -normalize(ray_in.direction()));
+            double reflection_prob = schlick_approx(ior, cosine);
+
+            double fuzziness = 0.25;
+
+            if(random_float() < reflection_prob)
+                scattered = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());
+            else
+                scattered = Ray(rec.point_at_t, refracted + fuzziness * random_in_unit_sphere());
+        }
 
         return true;
     }
