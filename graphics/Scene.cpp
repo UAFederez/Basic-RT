@@ -13,7 +13,7 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
         bool intersects_bv = false;
 
         // Don't bother checking with each face of the bounding box if there
-        // are few enough primitives
+        // are fewer primitives than there are faces of the bounding box
         if(mesh->primitives.size() > mesh->bounding_volume_faces.size())
         {
             for(const Primitive* face : mesh->bounding_volume_faces)
