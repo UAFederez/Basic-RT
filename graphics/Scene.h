@@ -39,10 +39,10 @@ struct Mesh
             BoundsDefinition defn = p->get_bounds();
 
             for(std::size_t i = 0; i < 3; i++)
+            {
                 low_far[i] = std::min(low_far[i], defn.lower_far_corner[i]);
-
-            for(std::size_t i = 0; i < 3; i++)
                 up_near[i] = std::max(up_near[i], defn.upper_near_corner[i]);
+            }
         }
 
         // Step 2 : Construct rectangular prism based on corners
@@ -77,7 +77,7 @@ struct Mesh
                                                         low_far,
                                                         bv_mat));
     }
-
+    std::string name;
     std::vector<Material*  > materials;
     std::vector<Primitive* > primitives;
     std::vector<Primitive* > bounding_volume_faces;

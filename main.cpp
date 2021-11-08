@@ -21,7 +21,6 @@
 #include "util/Threading.h"
 #include "util/General.h"
 
-#include "math/Vector3.h"
 #include "math/Ray.h"
 
 #include "graphics/Material.h"
@@ -34,7 +33,7 @@
 
 Vec3 rotate_y(const Vec3& v, const float theta)
 {
-    const float rad = theta * k_PI / 180.0f;
+    const float rad = theta * k_PI / 90.0f;
     return Vec3({ 
                     dot( v, Vec3({ cos(rad), 0.0, -sin(rad) }) ),
                     dot( v, Vec3({ 0.0, 1.0, 0.0 }) ),
@@ -64,7 +63,7 @@ Color color(const Ray& r, const Scene& world, int depth)
     //return Vec3({ 0.001, 0.001, 0.001 });
     Vec3 unit_dir = normalize(r.direction());
     double t = 0.5 * (unit_dir.y() + 1.0);
-    return (1.0 - t) * Color({ 0.02, 0.01, 0.01 }) + t * Color({0.01, 0.01, 0.02});
+    return (1.0 - t) * Color({ 1.0, 1.0, 1.00 }) + t * Color({0.7, 0.7, 1.0});
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -132,8 +131,8 @@ void load_mesh_obj_file(const std::string& path,
 
     if(!input_file)
     {
-        std::printf("[ERROR] Could not read \'%s\'. Exiting now...", path.c_str());
-        return ;
+        std::printf("[ERROR] Could not read \'%s\'. Stopping file input\n", path.c_str());
+        return;
     }
 
     int num_poly = 0;
@@ -230,13 +229,13 @@ int main()
     std::vector<Material*> materials;
     materials.push_back(new Metal(Color({1.0, 1.0, 1.0}), 0.10));
     materials.push_back(new Metal(Color({0.9, 0.9, 0.9}), 0.1));
-    materials.push_back(new Dielectric(1.5));
+    materials.push_back(new Dielectric(1.33));
 
     materials.push_back(new Lambertian(Color({0.5, 0.5, 0.5})));
     materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
 
-    materials.push_back(new Emissive(Color({1.0, 0.7, 0.7})));
-    materials.push_back(new Emissive(Color({0.7, 0.7, 1.0})));
+    materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
+    materials.push_back(new Emissive(Color({2.0, 2.0, 2.0})));
     materials.push_back(new Metal(Color({0.8, 0.8, 0.9}), 0.05));
     materials.push_back(new Lambertian(Color({0.2, 0.2, 0.2})));
 
@@ -244,13 +243,15 @@ int main()
     Scene scene = {};
 
     Mesh* model_mesh = new Mesh();
-    load_mesh_obj_file("meshes/monkey-flat.obj", 
-                        materials[2], 
+    load_mesh_obj_file("meshes/monkey.obj", 
+                        materials[1], 
                         &model_mesh->primitives,
-                        Vec3({ 0, 0.5, 0.0 }));
+                        Vec3({ 0, 0.0, 0.0 }));
+    model_mesh->name = "Monkey diffuse";
     model_mesh->calculate_bounding_faces(); 
     scene.meshes.push_back(model_mesh);
 
+    /**
     Mesh* model_mesh2 = new Mesh();
     load_mesh_obj_file("meshes/monkey.obj", 
                         materials[4], 
@@ -266,6 +267,7 @@ int main()
                         Vec3({  0.5, 0.5, 0.0 }));
     model_mesh3->calculate_bounding_faces(); 
     scene.meshes.push_back(model_mesh3);
+    **/
 
 
     //Mesh* model_mesh2 = new Mesh();
@@ -282,11 +284,13 @@ int main()
     const float FLOOR_HALF = 10.0f;
 
     Mesh* lighting1 = new Mesh();
+    lighting1->name = "Lighting 1";
     lighting1->add_primitive(new Sphere(Vec3({-1.0, 2, 2}), 1.0, materials[5]));
     scene.meshes.push_back(lighting1);
 
     Mesh* lighting2 = new Mesh();
-    lighting1->add_primitive(new Sphere(Vec3({2.0, 2, -2}), 1.0, materials[6]));
+    lighting2->name = "Lighting 2";
+    lighting2->add_primitive(new Sphere(Vec3({2.0, 2, -2}), 1.0, materials[6]));
     scene.meshes.push_back(lighting2);
 
     // floor
@@ -298,10 +302,11 @@ int main()
     const float CEIL_HALF   = 10.0f;
 
     Mesh* floor_mesh = new Mesh();
-    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, 0.25,  plane_dist}),
-                                              Vec3({ FLOOR_HALF, 0.25,  FLOOR_HALF * 2.0}),
-                                              Vec3({ FLOOR_HALF, 0.25, -FLOOR_HALF * 2.0}),
-                                              Vec3({-FLOOR_HALF, 0.25, -FLOOR_HALF * 2.0}),
+    floor_mesh->name = "Floor mesh";
+    floor_mesh->add_primitive(new Rectangle3D(Vec3({-FLOOR_HALF, -0.2,  plane_dist}),
+                                              Vec3({ FLOOR_HALF, -0.2,  FLOOR_HALF * 2.0}),
+                                              Vec3({ FLOOR_HALF, -0.2, -FLOOR_HALF * 2.0}),
+                                              Vec3({-FLOOR_HALF, -0.2, -FLOOR_HALF * 2.0}),
                                               materials[8]));
     scene.meshes.push_back(floor_mesh);
 
@@ -369,7 +374,8 @@ int main()
     //scene.objects.push_back(new Sphere(Vec3({ 0.0, 0.0, -3.0}), 2.0, materials[0]));
     
     for(Mesh* mesh : scene.meshes)
-        std::cout << "Checks against " << mesh->bounding_volume_faces.size() << " primitives first\n";
+        std::cout << mesh->name << " require intersection check against " 
+                                 << mesh->bounding_volume_faces.size() << " primitives first\n";
 
     // Image rendering description
     const uint32_t IMAGE_WIDTH  = 960;
@@ -379,18 +385,18 @@ int main()
 
     // Camera description
     const float view_rot = 60.0f; // 60.0f
-    const float dist     = 1.75; // 8
+    const float dist     = 2.0; // 8
     Camera main_camera(Vec3({ cos(view_rot * k_PI / 180.0f) * dist, 
                               1.0,
                               sin(view_rot * k_PI / 180.0f) * dist}),
-                       Vec3({ 0, 0.5, -0.1 }),
+                       Vec3({ 0, 0.5, 0.0 }),
                        Vec3({ 0, 1.0, 0}),
                        45.0f, // 30
                        float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
 
     // Rendering thread parameters
     const uint32_t MAX_THREADS  = 12;
-    const uint32_t NUM_SAMPLES  = 12;
+    const uint32_t NUM_SAMPLES  = 4;
     const uint32_t NUM_THREADS  = MAX_THREADS;
 
     std::vector<uint8_t>   image_pixels;
