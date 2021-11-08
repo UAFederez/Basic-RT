@@ -6,11 +6,10 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
     float closest      = t_max;
     bool hit_anything  = false;
 
-    HitRecord bv_rec   = {};
+    HitRecord bv_rec   = {};    // Not really useful since only hit/no hit matters
 
     for(const Mesh* mesh : meshes)
     {
-        // If mesh hits anything in the bounding_volume_faces
         bool intersects_bv = false;
         for(const Primitive* face : mesh->bounding_volume_faces)
         {
@@ -18,11 +17,11 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
             // because a bounding box face is nearer even though the 
             // area itself may be empty enough to see the further object
             if(face->hit(r, t_min, FLT_MAX, bv_rec))  
+            {
                 intersects_bv = true;
+                break;
+            }
         }
-
-        // Reset because bounding face is always at least the same distance
-        // or closer to the camera than the primitive itself
 
         /**
          * If so, then check hit with each of the primitives 
