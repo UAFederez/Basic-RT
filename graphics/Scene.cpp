@@ -11,17 +11,24 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
     for(const Mesh* mesh : meshes)
     {
         bool intersects_bv = false;
-        for(const Primitive* face : mesh->bounding_volume_faces)
+
+        // Don't bother checking with each face of the bounding box if there
+        // are few enough primitives
+        if(mesh->primitives.size() > mesh->bounding_volume_faces.size())
         {
-            // Not using FLT_MAX causes farther objects to be 'cut off'
-            // because a bounding box face is nearer even though the 
-            // area itself may be empty enough to see the further object
-            if(face->hit(r, t_min, FLT_MAX, bv_rec))  
+            for(const Primitive* face : mesh->bounding_volume_faces)
             {
-                intersects_bv = true;
-                break;
+                // Not using FLT_MAX causes farther objects to be 'cut off'
+                // because a bounding box face is nearer even though the 
+                // area itself may be empty enough to see the further object
+                if(face->hit(r, t_min, FLT_MAX, bv_rec))  
+                {
+                    intersects_bv = true;
+                    break;
+                }
             }
-        }
+        } else
+            intersects_bv = true; // Go straight to intersection check against primitives
 
         /**
          * If so, then check hit with each of the primitives 
