@@ -4,20 +4,31 @@ SRC  = main.cpp \
 	   graphics/Triangle.cpp \
 	   graphics/Plane.cpp \
 	   graphics/Rectangle3D.cpp \
+	   graphics/Mesh.cpp \
 	   graphics/Sphere.cpp \
+	   graphics/Material.cpp \
 	   graphics/Camera.cpp \
 	   util/BitmapImage.cpp \
-	   util/Threading.cpp
+	   util/Threading.cpp 
 
 # TODO: autogenerate if not exisiting
 BDIR = build
-CF   = -Wextra -Wpedantic -O3 -g -DSFML_STAIC -static-libstdc++ -static-libgcc
+CF   = -Wextra -Wpedantic -g -DSFML_STATIC -static-libstdc++ -static-libgcc -pg -O3
 LF   = -lsfml-graphics -lsfml-window -lsfml-system
 
 ID   = -IC:/sfml_libs/include 
 LD   = -LC:/sfml_libs/lib
 
-EXT  = exe
+
+ifeq ($(OS), Windows_NT)
+	EXT  = exe
+	DEL  = del
+	DELF = /S
+else
+	EXT  = out
+	DEL  = rm
+	DELF = -rf
+endif
 
 Raytracer.$(EXT): util/General.h \
 	   		   	  $(BDIR)/main.o \
@@ -26,11 +37,13 @@ Raytracer.$(EXT): util/General.h \
 	   		   	  $(BDIR)/Plane.o \
 	   		   	  $(BDIR)/Rectangle3D.o \
 	   		   	  $(BDIR)/Sphere.o \
+	   		   	  $(BDIR)/Material.o \
+	   		   	  $(BDIR)/Threading.o \
+	   		   	  $(BDIR)/Mesh.o \
 	   		   	  $(BDIR)/Camera.o \
-	   		   	  $(BDIR)/BitmapImage.o \
-	   		   	  $(BDIR)/Threading.o
+	   		   	  $(BDIR)/BitmapImage.o
 	@$(CC) $^ -o $@ $(CF) $(ID) $(LD) $(LF)
-	@echo [Linking  ] Making executable
+	@echo [Linking..] Making executable
 
 $(BDIR)/main.o: main.cpp \
 				graphics/Material.h \
@@ -40,20 +53,26 @@ $(BDIR)/main.o: main.cpp \
 				graphics/Rectangle3D.h \
 				graphics/Plane.h \
 				graphics/Scene.h \
-				util/BitmapImage.h \
+				graphics/Mesh.h \
 				util/Threading.h \
+				util/BitmapImage.h \
 				util/General.h \
 	   			math/Vector.h
-	@$(CC) -c $< $(ID) -o $@
+	@$(CC) -c $< $(CF) $(ID) -o $@
 	@echo [Compiling] $<
 
 $(BDIR)/%.o: graphics/%.cpp graphics/%.h
-	@$(CC) -c $< $(ID) -o $@
+	@$(CC) -c $< $(CF) $(ID) -o $@
 	@echo [Compiling] $<
 
 $(BDIR)/%.o: util/%.cpp util/%.h
-	@$(CC) -c $< $(ID) -o $@
+	@$(CC) -c $< $(CF) $(ID) -o $@
 	@echo [Compiling] $<
 
 clean:
+ifeq ($(OS), Windows_NT)
 	del /S *o Raytracer.exe Raytracer.out
+else
+	$(DEL) $(DELF) $(BDIR)/*.o Raytracer.exe Raytracer.out
+endif
+
