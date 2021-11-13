@@ -3,7 +3,10 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <iostream>
 #include <cstdio>
+#include <memory>
+#include <fstream>
 
 #pragma pack(1)
 struct BitmapInfoHeader 
@@ -30,9 +33,14 @@ struct BitmapDIBHeader
 };
 #pragma pack()
 
-void write_bmp_to_file(const char*    file_name,
-                       const uint8_t* pixels,
-                       const uint32_t width,
-                       const uint32_t height,
-                       const uint32_t bytes_per_pixel);
+void write_bmp_to_file (const char*    file_name,
+                        const uint8_t* pixels,
+                        const uint32_t width,
+                        const uint32_t height,
+                        const uint32_t bytes_per_pixel);
+
+std::unique_ptr<uint8_t> read_from_bmp_file(const char* file_name,
+                                            uint32_t*   image_width,
+                                            uint32_t*   image_height,
+                                            uint32_t*   bytes_per_pixel);
 #endif
