@@ -5,6 +5,20 @@
 #include "../math/Vector.h"
 #include "../math/Ray.h"
 
+#include <memory>
+
+// TODO: Make Textured material have this as an additional option
+enum class FilteringMethod {
+    NEAREST_NEIGHBOR,
+    BILINEAR,
+};
+
+inline double schlick_approx(const double IOR, const double cosine)
+{
+    double R0 = std::pow<double>((1 - IOR) / (1 + IOR), 2);
+    return R0 + ((1 - R0) * std::pow<double>((1 - cosine), 5));
+}
+
 class Material;
 
 struct HitRecord 
@@ -14,19 +28,52 @@ struct HitRecord
     Vec3  normal;
     Vec2  uv;
     Material* material_ptr;
+
+    Vec3 tangent;
+    Vec3 bitangent;
 };
 
 class Material {
 public:
     virtual bool scatter(const Ray&, const HitRecord&, Vec3&, Ray&)  const = 0;
-    virtual Vec3 emitted() const
-    {
-        return Vec3({0.0, 0.0, 0.0});
-    }
+    virtual Vec3 emitted(const Vec2& uv) const;
     virtual ~Material()
     {
     }
     bool is_double_sided = false;
+};
+
+// TODO: textured
+class Textured : public Material {
+public:
+    Textured(Color*   albedo_map, 
+             Color*   normal_map,
+             Color*   ao_map,
+             Color*   rough_map,
+             bool     is_emissive,
+             uint32_t image_width,
+             uint32_t image_height):
+        albedo_map  (albedo_map),
+        normal_map  (normal_map),
+        image_width (image_width),
+        is_emissive (is_emissive),
+        image_height(image_height),
+        ambient_occlusion_map(ao_map),
+        roughness_map(rough_map)
+    {
+    }
+
+    virtual Vec3 emitted(const Vec2& uv) const override;
+    virtual bool scatter(const Ray& r, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const override;
+private:
+    Color* albedo_map  = nullptr;
+    Color* normal_map  = nullptr;
+    Color* ambient_occlusion_map = nullptr;
+    Color* roughness_map         = nullptr;
+
+    bool     is_emissive;
+    uint32_t image_width;
+    uint32_t image_height;
 };
 
 class Emissive : public Material {
@@ -37,16 +84,9 @@ public:
         is_double_sided = true;
     }
 
-    virtual Vec3 emitted() const
-    {
-        return color;
-    }
-
+    virtual Vec3 emitted(const Vec2& uv) const override;
     virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered)
-        const override
-    {
-        return false;
-    }
+        const override;
     Vec3 color;
 };
 
@@ -55,14 +95,7 @@ public:
     Lambertian(const Vec3& attenuation):
         albedo(attenuation) { }
 
-    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const
-    {
-        Vec3 target = rec.point_at_t + rec.normal + random_in_unit_sphere();
-        scattered   = Ray(rec.point_at_t, target - rec.point_at_t);
-        attenuation = albedo;
-        return true;
-    }
-
+    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const override;
     Vec3 albedo;
 };
 
@@ -76,68 +109,25 @@ public:
         fuzziness = std::min<float>(std::max<float>(0.0, fuzziness), 1.0f);
     }
 
-    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const
-    {
-        Vec3 reflected = reflect(normalize(ray_in.direction()), rec.normal);
-        scattered   = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());
-        attenuation = albedo;
-        return true;
-    }
+    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const override;
     Vec3 albedo;
     float   fuzziness;
 };
 
-inline double schlick_approx(const double IOR, const double cosine)
-{
-    double R0 = std::pow<double>((1 - IOR) / (1 + IOR), 2);
-    return R0 + ((1 - R0) * std::pow<double>((1 - cosine), 5));
-}
-
 class Dielectric : public Material {
 public:
-    Dielectric(const float rel_ior):
-        rel_ior(rel_ior)
+    Dielectric(const float rel_ior, 
+               const Vec3& albedo = Vec3({ 1.0, 1.0, 1.0 }), 
+               const float fuzziness = 0.0):
+        rel_ior  (rel_ior),
+        albedo   (albedo),
+        fuzziness(fuzziness)
     {
     }
-
-    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const
-    {
-        Vec3  nrm = Vec3({0.0, 0.0, 0.0});
-        float ior = 0.0f;
-        
-        if(dot(ray_in.direction(), rec.normal) > 0) 
-        {
-            nrm = -rec.normal;
-            ior = rel_ior;
-        } else
-        {
-            nrm = rec.normal;
-            ior = 1.0 / rel_ior;
-        }
-
-        Vec3 refracted = refract(-ray_in.direction(), nrm, ior);
-        Vec3 reflected = reflect(ray_in.direction(), nrm);
-        attenuation    = Vec3({1.0, 1.0, 1.0});
-
-        if(refracted.magnitude_squared() == 0) 
-            scattered = Ray(rec.point_at_t, reflected);
-        else
-        {
-            // Calculate the Fresnel effect based on Schlick's approximation
-            double cosine          = dot(nrm, -normalize(ray_in.direction()));
-            double reflection_prob = schlick_approx(ior, cosine);
-
-            double fuzziness = 0.25;
-
-            if(random_float() < reflection_prob)
-                scattered = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());
-            else
-                scattered = Ray(rec.point_at_t, refracted + fuzziness * random_in_unit_sphere());
-        }
-
-        return true;
-    }
+    virtual bool scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const override;
+    Vec3 albedo;
     float rel_ior;
+    float fuzziness = 0.0;
 };
 
 #endif
