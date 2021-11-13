@@ -13,9 +13,8 @@ SRC  = main.cpp \
 
 # TODO: autogenerate if not exisiting
 BDIR = build
-CF   = -Wextra -Wpedantic -g -DSFML_STATIC -static-libstdc++ -static-libgcc -pg -O3
-LF   = -lsfml-graphics -lsfml-window -lsfml-system
-
+CF   = -Wall -Wextra -Wpedantic -g -O3 -DSFML_STATIC
+LF   = -lsfml-system -lsfml-graphics -lsfml-window
 ID   = -IC:/sfml_libs/include 
 LD   = -LC:/sfml_libs/lib
 
@@ -42,7 +41,7 @@ Raytracer.$(EXT): util/General.h \
 	   		   	  $(BDIR)/Mesh.o \
 	   		   	  $(BDIR)/Camera.o \
 	   		   	  $(BDIR)/BitmapImage.o
-	@$(CC) $^ -o $@ $(CF) $(ID) $(LD) $(LF)
+	@$(CC) -o $@ $^ $(CF) $(ID) $(LD) $(LF)
 	@echo [Linking..] Making executable
 
 $(BDIR)/main.o: main.cpp \
@@ -71,7 +70,7 @@ $(BDIR)/%.o: util/%.cpp util/%.h
 
 clean:
 ifeq ($(OS), Windows_NT)
-	del /S *o Raytracer.exe Raytracer.out
+	del /S *o *gch Raytracer.exe Raytracer.out
 else
 	$(DEL) $(DELF) $(BDIR)/*.o Raytracer.exe Raytracer.out
 endif
