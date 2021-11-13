@@ -9,32 +9,32 @@ bool Triangle::hit(const Ray& r,
     Vec3 normal = cross(B - A, C - A);
 
     // Check if the point is within the supporting plane
-    const double denom = -dot(normal, r.direction());
+    const float denom = -dot(normal, r.direction());
 
     if(denom < 1e-6 && !material->is_double_sided)
         return false;
 
-    const double t = dot(normal, r.origin() - A) / denom;
+    const float t = dot(normal, r.origin() - A) / denom;
 
     if(t_min > t || t > t_max)
         return false;
 
     // Outside-inside test
     const Vec3  Q    = r.point_at_t(t);
-    const double CAB = dot(cross((B - A), (Q - A)), normal);
-    const double CCB = dot(cross((C - B), (Q - B)), normal);
-    const double CAC = dot(cross((A - C), (Q - C)), normal);
+    const float CAB = dot(cross((B - A), (Q - A)), normal);
+    const float CCB = dot(cross((C - B), (Q - B)), normal);
+    const float CAC = dot(cross((A - C), (Q - C)), normal);
 
     if(CAB < 0 || CCB < 0 || CAC < 0)
         return false;
 
     // Changed from cross(B - A, C - A) because it is the same
-    const double area  = dot(normal, normal);
-    const double darea = 1.0 / area;
+    const float area  = dot(normal, normal);
+    const float darea = 1.0 / area;
 
-    const double alpha = CCB * darea;
-    const double beta  = CAC * darea;
-    const double gamma = (1 - alpha - beta);
+    const float alpha = CCB * darea;
+    const float beta  = CAC * darea;
+    const float gamma = (1 - alpha - beta);
 
     // If vertex normals have been explicitly defined
     if(a_nrm.magnitude_squared() != 0 &&

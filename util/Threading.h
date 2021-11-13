@@ -1,6 +1,7 @@
 #ifndef UTIL_THREADING_H
 #define UTIL_THREADING_H
 
+#include <mutex>
 #include <vector>
 #include "../graphics/Scene.h"
 #include "../graphics/Camera.h"
@@ -44,8 +45,11 @@ struct ThreadHandle
 
 struct RenderThreadControl
 {
-    ImageRenderInfo image;
+    ImageRenderInfo  image;
+    std::mutex       mutex;
     HANDLE lock;
+
+    std::vector<int> thread_stats;
 };
 
 DWORD WINAPI win32_render_tiles(LPVOID param);

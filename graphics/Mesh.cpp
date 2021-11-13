@@ -70,12 +70,11 @@ void Mesh::calculate_bounding_faces()
 
 Mesh::~Mesh()
 {
-    //std::printf("Deallocated mesh\n");
-    //delete bv_mat;
+    delete bv_mat;
 
-    //for(Primitive* p : bounding_volume_faces)
-    //    delete p;
+    for(Primitive* p : bounding_volume_faces)
+        delete p;
 
-    //for(Primitive* p : primitives)
-    //    delete p;
+    for(Primitive* p : primitives)
+        delete p;
 }

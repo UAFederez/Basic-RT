@@ -7,9 +7,9 @@
 #include "../util/General.h"    // random_float()
 
 // For MSVC support
-const double k_PI = 3.14159265358979323846264338327950288;
+const float k_PI = 3.14159265358979323846264338327950288;
 
-using scalar = double;
+using scalar = float;
 
 template <std::size_t N>
 class Vector {
@@ -236,9 +236,9 @@ inline Vec3 random_in_unit_sphere()
     const scalar rand_phi   = random_float(0.0, 2 * k_PI);
     
     return Vec3({
-        cos(rand_theta) * sin(rand_phi),
-        sin(rand_theta) * sin(rand_phi),
-        cos(rand_phi),
+        cosf(rand_theta) * sinf(rand_phi),
+        sinf(rand_theta) * sinf(rand_phi),
+        cosf(rand_phi),
     });
 }
 

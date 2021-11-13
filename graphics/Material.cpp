@@ -1,6 +1,6 @@
 #include "Material.h"
 
-Vec3 Material::emitted(const Vec2& uv) const
+Vec3 Material::emitted(const Vec2&) const
 {
     return Vec3({0.0, 0.0, 0.0});
 }
@@ -10,9 +10,9 @@ Vec3 Textured::emitted(const Vec2& uv) const
     if(!is_emissive)
         return Vec3({ 0.0, 0.0, 0.0 });
 
-    Vec2 texel   = Vec2({ std::floor(uv.u() * double(image_width )), 
-                          std::floor(uv.v() * double(image_height)) });
-    uint32_t idx = uint32_t(texel.v() * double(image_width) + texel.u());
+    Vec2 texel   = Vec2({ std::floor(uv.u() * float(image_width  - 1)) , 
+                          std::floor(uv.v() * float(image_height - 1)) });
+    uint32_t idx = uint32_t(texel.v() * float(image_width) + texel.u());
     return albedo_map[ idx ];
 }
 
@@ -22,28 +22,27 @@ bool Textured::scatter(const Ray& r, const HitRecord& rec, Vec3& attenuation, Ra
         return false;
 
     // Get texel (U, V) from the UV coordinates
-    Vec2 texel   = Vec2({ std::floor(rec.uv.u() * double(image_width )), 
-            std::floor(rec.uv.v() * double(image_height)) });
-    uint32_t idx = uint32_t(texel.v() * double(image_width) + texel.u());
-
+    Vec2 texel   = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
+                          std::floor(rec.uv.v() * float(image_height - 1)) });
+    uint32_t idx = uint32_t(texel.v() * float(image_width) + texel.u());
 
     // Bilinear Interpolation
-    Vec2 t1   = Vec2({ std::floor(rec.uv.u() * double(image_width )), 
-            std::floor(rec.uv.v() * double(image_height)) });
-    Vec2 t2   = Vec2({ std::ceil (rec.uv.u() * double(image_width )), 
-            std::floor(rec.uv.v() * double(image_height)) });
-    Vec2 t3   = Vec2({ std::floor(rec.uv.u() * double(image_width )), 
-            std::ceil (rec.uv.v() * double(image_height)) });
-    Vec2 t4   = Vec2({ std::ceil (rec.uv.u() * double(image_width )), 
-            std::ceil (rec.uv.v() * double(image_height)) });
+    Vec2 t1 = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
+                     std::floor(rec.uv.v() * float(image_height - 1)) });
+    Vec2 t2 = Vec2({ std::ceil (rec.uv.u() * float(image_width  - 1)), 
+                     std::floor(rec.uv.v() * float(image_height - 1)) });
+    Vec2 t3 = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
+                     std::ceil (rec.uv.v() * float(image_height - 1)) });
+    Vec2 t4 = Vec2({ std::ceil (rec.uv.u() * float(image_width  - 1)), 
+                     std::ceil (rec.uv.v() * float(image_height - 1)) });
 
-    int idx1 = clamp(int(t1.v() * image_width + t1.u() - 1), 0, int(image_width * image_height));
-    int idx2 = clamp(int(t2.v() * image_width + t2.u() + 1), 0, int(image_width * image_height));
-    int idx3 = clamp(int(t3.v() * image_width + t3.u() + image_width), 0, int(image_width * image_height));
-    int idx4 = clamp(int(t4.v() * image_width + t4.u() - image_width), 0, int(image_width * image_height));
+    int idx1 = clamp(int(t1.v() * image_width + t1.u() - 1), 0, int(image_width * image_height - 1));
+    int idx2 = clamp(int(t2.v() * image_width + t2.u() + 1), 0, int(image_width * image_height - 1));
+    int idx3 = clamp(int(t3.v() * image_width + t3.u() + image_width), 0, int(image_width * image_height - 1));
+    int idx4 = clamp(int(t4.v() * image_width + t4.u() - image_width), 0, int(image_width * image_height - 1));
 
-    double x_interp = rec.uv.u() * image_width  - t1.u();
-    double y_interp = rec.uv.v() * image_height - t1.v();
+    float x_interp = rec.uv.u() * image_width  - t1.u();
+    float y_interp = rec.uv.v() * image_height - t1.v();
 
     Vec3 tex1 = albedo_map[idx1];
     Vec3 tex2 = albedo_map[idx2];
@@ -52,14 +51,14 @@ bool Textured::scatter(const Ray& r, const HitRecord& rec, Vec3& attenuation, Ra
 
     Vec3 a1  = (1.0 - x_interp) * tex1 + (x_interp * tex2);
     Vec3 a2  = (1.0 - x_interp) * tex3 + (x_interp * tex4);
-    Vec3 af  = (1.0 - y_interp) * a1  + (y_interp * a2);
+    Vec3 att_filtered = (1.0 - y_interp) * a1  + (y_interp * a2);
 
     // Normal map
     Vec3 reflected    = reflect(normalize(r.direction()), rec.normal) + random_in_unit_sphere();
     Vec3 final_normal = rec.normal;
 
     // TODO: Option for bilinear filtering on image
-    attenuation = albedo_map[idx];
+    attenuation = att_filtered;
 
     if(normal_map != nullptr)
     {
@@ -92,23 +91,22 @@ bool Textured::scatter(const Ray& r, const HitRecord& rec, Vec3& attenuation, Ra
         attenuation = albedo_map[idx] * occlusion_texel;
         reflected   = reflect(normalize(r.direction()), rec.normal) + (rough_texel * random_in_unit_sphere());
     }
-    Vec3 target = rec.point_at_t + final_normal;
     scattered = Ray(rec.point_at_t, reflected);
     return true;
 }
 
-Vec3 Emissive::emitted(const Vec2& uv) const 
+Vec3 Emissive::emitted(const Vec2&) const 
 {
     return color;
 }
 
-bool Emissive::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered)
+bool Emissive::scatter(const Ray&, const HitRecord&, Vec3&, Ray&)
     const 
 {
     return false;
 }
 
-bool Lambertian::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const 
+bool Lambertian::scatter(const Ray&, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const 
 {
     Vec3 target = rec.point_at_t + rec.normal + random_in_unit_sphere();
     scattered   = Ray(rec.point_at_t, target - rec.point_at_t);
@@ -148,8 +146,8 @@ bool Dielectric::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuat
     else
     {
         // Calculate the Fresnel effect based on Schlick's approximation
-        double cosine          = dot(nrm, -normalize(ray_in.direction()));
-        double reflection_prob = schlick_approx(ior, cosine);
+        float cosine          = dot(nrm, -normalize(ray_in.direction()));
+        float reflection_prob = schlick_approx(ior, cosine);
 
         if(random_float() < reflection_prob)
             scattered = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());

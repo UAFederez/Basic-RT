@@ -13,6 +13,8 @@
 #include <sstream>
 #include <memory>
 
+#include <SFML/Graphics.hpp>
+
 #include "math/Vector.h"
 
 #include "util/BitmapImage.h"
@@ -29,17 +31,6 @@
 #include "graphics/Plane.h"
 #include "graphics/Scene.h"
 
-Vec3 rotate_y(const Vec3& v, const float theta)
-{
-    const float rad = theta * k_PI / 90.0f;
-    return Vec3({ 
-                    dot( v, Vec3({ cos(rad), 0.0, -sin(rad) }) ),
-                    dot( v, Vec3({ 0.0, 1.0, 0.0 }) ),
-                    dot( v, Vec3({ sin(rad), 0.0, cos(rad) }) ),
-               });
-                                   
-}
-
 Color color(const Ray& r, const Scene& world, uint32_t depth)
 {
     HitRecord rec = {};
@@ -51,7 +42,7 @@ Color color(const Ray& r, const Scene& world, uint32_t depth)
         if(depth > world.max_recursion_depth)
            return Color({ 0.0, 0.0, 0.0 }); 
         
-        Vec3 emitted = rec.material_ptr ? rec.material_ptr->emitted(rec.uv) : Vec3();
+        Vec3 emitted = rec.material_ptr->emitted(rec.uv);
 
         if(rec.material_ptr->scatter(r, rec, attenuation, scattered))
             return emitted + attenuation * color(scattered, world, depth + 1);
@@ -72,12 +63,10 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
 
         // Check if queue is not empty,
         lock_mutex(tcb);
-
         if(image->section_queue_front != image->sections.size())
             current_section = &image->sections[image->section_queue_front++];
         else
             continue_to_work = false;
-
         unlock_mutex(tcb);
 
         // color the current section of the image
@@ -107,7 +96,6 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                     image->pixels[y * image->image_width + x] = pixel; 
                 }
             }
-            
             current_section->is_finished = true;
             current_section->in_progress = false;
             current_section = NULL;
@@ -183,6 +171,7 @@ int main(int argc, char** argv)
     thread_control.image.camera       = &main_camera;
     thread_control.image.pixels       = std::vector<Vec3>(IMAGE_WIDTH * IMAGE_HEIGHT);
     thread_control.image.section_queue_front = 0;
+    thread_control.thread_stats       = std::vector<int>(scene.num_threads);
 
     // Prepare the work units that must be performed by the threads
     for(uint32_t tile_y = 0; tile_y < HEIGHT_IN_TILES; tile_y++)
@@ -214,44 +203,85 @@ int main(int argc, char** argv)
     auto time_begin = high_resolution_clock::now();
     std::cout << "[INFO   ] Creating threads...\n";
 
-    initialize_mutex(&thread_control);
+    // Initialize threads
+    auto time_render_begin = high_resolution_clock::now();
+    std::vector<ThreadHandle> render_threads(scene.num_threads);
 
-    std::unique_ptr<ThreadHandle> render_threads = std::unique_ptr<ThreadHandle>(new ThreadHandle[NUM_THREADS]);
-    create_render_threads(render_threads.get(), NUM_THREADS, &thread_control);
+    initialize_mutex     (&thread_control);
+    create_render_threads(render_threads.data(), scene.num_threads, &thread_control);
 
-    const uint32_t BAR_W = 81;
-    char bar_text[BAR_W];
+    // GUI Display
+    sf::RenderWindow window(sf::VideoMode(IMAGE_WIDTH, IMAGE_HEIGHT), "Render");
+    sf::Image output;
+    output.create(IMAGE_WIDTH, IMAGE_HEIGHT, sf::Color::Black);
 
-    std::memset(bar_text, ' ', BAR_W - 1);
-    bar_text[BAR_W - 1] = '\0';
-    while(true)
+    bool output_done = false;    
+    while(window.isOpen())
     {
-        uint32_t num_finished = 0;
-        for(const SectionRenderInfo& info : thread_control.image.sections)
+        sf::Event event;
+        while(window.pollEvent(event))
         {
-            if(info.is_finished) 
+            if(event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // Draw
+        window.clear(sf::Color::Black);
+
+        lock_mutex(&thread_control);
+        for(uint32_t y = 0; y < IMAGE_HEIGHT; y++)
+        {
+            for(uint32_t x = 0; x < IMAGE_WIDTH; x++)
+            {
+                const int ypos = IMAGE_HEIGHT - 1 - y;
+                const int xpos = x;
+                const Vec3* pixel = &thread_control.image.pixels[ypos * IMAGE_WIDTH + xpos];
+                output.setPixel(x, y, sf::Color(255.99 * sqrt(clamp(pixel->x(), 0.0f, 1.0f)), 
+                                                255.99 * sqrt(clamp(pixel->y(), 0.0f, 1.0f)), 
+                                                255.99 * sqrt(clamp(pixel->z(), 0.0f, 1.0f))));
+            }
+        }
+        unlock_mutex(&thread_control);
+
+        sf::Texture tex;
+        tex.loadFromImage(output);
+        sf::Sprite sprite;
+        sprite.setTexture(tex);
+        window.draw(sprite);
+
+        uint32_t num_finished = 0;
+        for(const SectionRenderInfo& section : thread_control.image.sections)
+        {
+            if(section.in_progress)
+            {
+                sf::RectangleShape rect(sf::Vector2f( (uint32_t) section.tile_width, 
+                                                      (uint32_t) section.tile_height ));
+                rect.setFillColor(sf::Color(0, 0, 0, 0.0));
+                rect.setPosition (section.tile_x , IMAGE_HEIGHT - section.tile_y - section.tile_height);
+                rect.setOutlineThickness(1.0);
+                rect.setOutlineColor(sf::Color(255.0, 255.0, 255.0));
+
+                window.draw(rect);
+            }
+            if(section.is_finished)
                 num_finished++;
         }
-
-        float    percent  = float(num_finished) / float(thread_control.image.sections.size());
-        uint32_t num_bars = percent * (BAR_W - 1);
-        std::memset(bar_text, '#', num_bars);
-
-        std::printf("Rendering [%s]\r", bar_text);
-
-        if(num_finished == thread_control.image.sections.size())
+        
+        if(num_finished == thread_control.image.sections.size() && !output_done)
         {
-            std::printf("\n");
-            break;
+            auto time_render_end   = high_resolution_clock::now();
+            auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
+            std::cout << "The render took " << std::fixed << std::setprecision(2)
+                      << time_render_total  << " seconds.\n";
+            output_done = true;
         }
-    }
-    auto time_end    = high_resolution_clock::now();
-    auto render_time = duration<double>(time_end - time_begin).count();
-    std::printf("Finished render in %.2f seconds\n", render_time);
 
-    join_render_threads(render_threads.get(), NUM_THREADS);
-    cleanup_threads    (&thread_control, render_threads.get(), NUM_THREADS);
-    
+        window.display();
+
+    }
+    join_render_threads(render_threads.data(), scene.num_threads);
+    cleanup_threads(&thread_control, render_threads.data(), scene.num_threads);
+
     for(Vec3& pixel : thread_control.image.pixels)
     {
         // Because .BMP file format stores image pixel colors in BGR format

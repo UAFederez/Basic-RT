@@ -55,12 +55,13 @@ public:
              uint32_t image_height):
         albedo_map  (albedo_map),
         normal_map  (normal_map),
-        image_width (image_width),
-        is_emissive (is_emissive),
-        image_height(image_height),
         ambient_occlusion_map(ao_map),
-        roughness_map(rough_map)
+        roughness_map(rough_map),
+        is_emissive (is_emissive),
+        image_width (image_width),
+        image_height(image_height)
     {
+        assert(albedo_map != nullptr);
     }
 
     virtual Vec3 emitted(const Vec2& uv) const override;
@@ -119,8 +120,8 @@ public:
     Dielectric(const float rel_ior, 
                const Vec3& albedo = Vec3({ 1.0, 1.0, 1.0 }), 
                const float fuzziness = 0.0):
-        rel_ior  (rel_ior),
         albedo   (albedo),
+        rel_ior  (rel_ior),
         fuzziness(fuzziness)
     {
     }

@@ -26,7 +26,7 @@ struct TextureImage {
     TextureImage() = default;
 };
 
-void convert_bmp_to_vec3(Color*, uint8_t*, const uint32_t, const uint32_t);
+std::vector<Color> convert_bmp_to_vec3(uint8_t*, const uint32_t, const uint32_t);
 
 class Scene {
 public:
@@ -54,10 +54,10 @@ public:
     // Deallocate scene objects
     ~Scene();
 
-    std::vector<Material*>   materials;
-    std::vector<Mesh*>       meshes;
-    std::vector<Primitive*>  objects;
-    std::vector<TextureImage> textures;
+    std::vector<std::unique_ptr<Material>> materials;
+    std::vector<std::unique_ptr<Mesh>>     meshes;
+
+    std::vector<TextureImage > textures;
 
     std::string name = "output";
     uint32_t image_width;

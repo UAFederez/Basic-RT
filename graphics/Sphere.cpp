@@ -4,13 +4,13 @@ bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& 
 {
     Vec3 oc = r.origin() - center;
     float a = dot(r.direction(), r.direction());
-    float b = dot(oc, r.direction());
+    float b = 2.0 * dot(oc, r.direction());
     float c = dot(oc, oc) - radius * radius;
-    float discriminant = b * b - (a * c);
+    float discriminant = b * b - (4 * a * c);
 
     if(discriminant > 0)
     {
-        float temp = (-b - sqrt(discriminant)) / (a); 
+        float temp = (-b - sqrt(discriminant)) / (2.0 * a); 
         if(t_min < temp && temp < t_max)
         {
             rec.t            = temp;
@@ -19,16 +19,16 @@ bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& 
             rec.material_ptr = material;
             
             // Convert cartesian -> spherical -> UV
-            double theta = atan2(-rec.normal.z(), rec.normal.x()) + k_PI;
-            double phi   = 0.5 + asin(rec.normal.y()) / k_PI;
-            rec.uv = Vec2({ theta / (2.0 * k_PI), phi });
-            
+            float theta = atan2f(-rec.normal.z(), rec.normal.x()) + k_PI;
+            float phi   = 0.5 + asinf(clamp(rec.normal.y(), -1.0f, 1.0f)) / k_PI;
+            rec.uv = Vec2({ theta / (2.0f * k_PI), phi });
+
             rec.tangent   = -normalize(cross(rec.normal, Vec3({ 0.0, 1.0, 0.0 })));
-            rec.bitangent =  normalize(cross(rec.normal, rec.tangent));
+            rec.bitangent =  cross(rec.normal, rec.tangent);
 
             return true;
         }
-        temp = (-b + sqrt(discriminant)) / (a);
+        temp = (-b + sqrt(discriminant)) / (2.0 * a);
         if(t_min < temp && temp < t_max)
         {
             rec.t            = temp;
@@ -37,12 +37,12 @@ bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& 
             rec.material_ptr = material;
 
             // Convert cartesian -> spherical -> UV
-            double theta = atan2(-rec.normal.z(), rec.normal.x()) + k_PI;
-            double phi   = 0.5 + asin(rec.normal.y()) / k_PI;
-            rec.uv = Vec2({ theta / (2.0 * k_PI), phi });
+            float theta = atan2f(-rec.normal.z(), rec.normal.x()) + k_PI;
+            float phi   = 0.5 + asinf(clamp(rec.normal.y(), -1.0f, 1.0f)) / k_PI;
+            rec.uv = Vec2({ theta / (2.0f * k_PI), phi });
 
-            rec.tangent   = -normalize(cross(rec.normal, Vec3({ 0.0, 1.0, 0.0 })));
-            rec.bitangent =  normalize(cross(rec.normal, rec.tangent));
+            rec.tangent   = -normalize(cross(rec.normal, Vec3({ 0.0f, 1.0f, 0.0f })));
+            rec.bitangent =  cross(rec.normal, rec.tangent);
 
             return true;
         }

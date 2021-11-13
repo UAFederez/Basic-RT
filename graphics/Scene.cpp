@@ -81,7 +81,7 @@ void Scene::read_scene_materials(const std::string& line)
     iss >> dummy;   
     if(line.find("LAMBERTIAN") == 0)
     {
-        double albedo_r, albedo_g, albedo_b;
+        float albedo_r, albedo_g, albedo_b;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b) )
             throw std::runtime_error("[Error] Please specify correct albedo RGB values");
@@ -96,7 +96,7 @@ void Scene::read_scene_materials(const std::string& line)
 
     } else if(line.find("DIELECTRIC") == 0)
     {
-        double albedo_r, albedo_g, albedo_b, ior;
+        float albedo_r, albedo_g, albedo_b, ior;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b >> ior) )
             throw std::runtime_error("[Error] Invalid dielectric parameters specified");
@@ -111,7 +111,7 @@ void Scene::read_scene_materials(const std::string& line)
         }
     } else if(line.find("METAL") == 0)
     {
-        double albedo_r, albedo_g, albedo_b, fuzziness;
+        float albedo_r, albedo_g, albedo_b, fuzziness;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b >> fuzziness) )
             throw std::runtime_error("[Error] Invalid metal parameters specified");
@@ -126,7 +126,7 @@ void Scene::read_scene_materials(const std::string& line)
         }
     } else if(line.find("EMISSIVE") == 0)
     {
-        double color_r, color_g, color_b;
+        float color_r, color_g, color_b;
         if( !(iss >> color_r >> color_g >> color_b) )
             throw std::runtime_error("[Error] Invalid emissive parameters specified");
         else
@@ -211,7 +211,7 @@ void Scene::read_scene_materials(const std::string& line)
     {
         throw std::runtime_error("[Error] Undefined parameter specified on line: \"" + line + "\"");
     }
-    materials.push_back(material);
+    materials.push_back(std::unique_ptr<Material>(material));
 }
 
 void Scene::read_scene_primitives(const std::string& line)
@@ -224,7 +224,7 @@ void Scene::read_scene_primitives(const std::string& line)
     Mesh* mesh = new Mesh();
     if(line.find("p_SPHERE") == 0)
     {
-        double   center_x, center_y, center_z, radius;
+        float   center_x, center_y, center_z, radius;
         uint32_t material_idx;
         if( !(iss >> center_x >> center_y >> center_z >> radius >> material_idx) &&
              (radius < 0.0f || material_idx > materials.size()) ) 
@@ -237,13 +237,16 @@ void Scene::read_scene_primitives(const std::string& line)
                       << "Radius: " << radius    << ' '
                       << "Material: " << material_idx << '\n';
 
-            mesh->add_primitive(new Sphere(Vec3({ center_x, center_y, center_z }), radius, materials[material_idx]));
+            assert(material_idx < materials.size());
+            mesh->add_primitive(new Sphere(Vec3({ center_x, center_y, center_z }), 
+                                           radius, 
+                                           materials[material_idx].get()));
         }
     }
 
     if(line.find("p_TRIANGLE") == 0)
     {
-        double   x1, y1, z1, x2, y2, z2, x3, y3, z3; 
+        float   x1, y1, z1, x2, y2, z2, x3, y3, z3; 
         uint32_t material_idx;
         if( !(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> x3 >> y3 >> z3 >> material_idx) ||
              (material_idx > materials.size()))
@@ -252,6 +255,7 @@ void Scene::read_scene_primitives(const std::string& line)
             std::printf("[INFO ] (Triangle) (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), Material: %d\n",
                          x1, y1, z1, x2 ,y2, z2, x3, y3, z3, material_idx);
 
+            //TODO:
             //mesh->add_primitive(new Triangle(Vec3({ x1, y1, z1 }), 
             //                                 Vec3({ x2, y2, z2 }), 
             //                                 Vec3({ x3, y3, z3 }), 
@@ -263,8 +267,7 @@ void Scene::read_scene_primitives(const std::string& line)
     {
         
     }
-    meshes.push_back(mesh);
-    mesh = nullptr;
+    meshes.push_back(std::unique_ptr<Mesh>(mesh));
 }
 
 void Scene::read_scene_parameters(const std::string& line)
@@ -348,7 +351,7 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
 
     HitRecord bv_rec   = {};    // Not really useful since only hit/no hit matters
 
-    for(const Mesh* mesh : meshes)
+    for(const auto& mesh : meshes)
     {
         bool intersects_bv = false;
 
@@ -356,7 +359,7 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
         // are fewer primitives than there are faces of the bounding box
         if(mesh->primitives.size() > mesh->bounding_volume_faces.size())
         {
-            for(const Primitive* face : mesh->bounding_volume_faces)
+            for(const auto& face : mesh->bounding_volume_faces)
             {
                 // Not using FLT_MAX causes farther objects to be 'cut off'
                 // because a bounding box face is nearer even though the 
@@ -398,9 +401,9 @@ bool Scene::anything_hit_by_ray(const Ray&  r, const float t_min, const float t_
     float closest      = t_max;
     bool hit_anything  = false;
 
-    for(const Mesh* m : meshes)
+    for(const auto& m : meshes)
     {
-        for(const Primitive* obj : m->primitives)
+        for(const auto& obj : m->primitives)
         {
             if(obj->hit(r, t_min, closest, temp_rec))
             {
@@ -411,42 +414,34 @@ bool Scene::anything_hit_by_ray(const Ray&  r, const float t_min, const float t_
         }
     }
     return hit_anything;
-
 }
 
 // Deallocate scene objects
 Scene::~Scene() 
 {
-    //for(Material* m : materials)
-    //    delete m;
-
-    //for(Primitive* p : objects)
-    //    delete p;
-
-    //for(Mesh* mesh : meshes)
-    //    delete mesh;
 }
 
-void convert_bmp_to_vec3(Color*   dest_color,
-                         uint8_t* pixel_bytes,
-                         const uint32_t tex_width,
-                         const uint32_t tex_height)
+std::vector<Color> convert_bmp_to_vec3(uint8_t* pixel_bytes, const uint32_t tex_width, const uint32_t tex_height)
 {
-    const double denom = 1 / double(256);
+    const float denom  = 1 / float(256);
     uint8_t* curr_byte = pixel_bytes;
+
+    std::vector<Color> colors = {};
+    colors.reserve(tex_width * tex_height);
 
     for(uint32_t y = 0; y < tex_height; y++)
     {
         for(uint32_t x = 0; x < tex_width; x++)
         {
-            Vec3 a = Vec3({ double(*(curr_byte + 2)) * denom,
-                            double(*(curr_byte + 1)) * denom,
-                            double(*(curr_byte + 0)) * denom });
-            dest_color[y * tex_width + x] = a;
+            Vec3 a = Vec3({ float(*(curr_byte + 2)) * denom,
+                            float(*(curr_byte + 1)) * denom,
+                            float(*(curr_byte + 0)) * denom });
+            colors.push_back(a);
 
             curr_byte += 3;
         }
     }
+    return std::move(colors);
 }
 
 int Scene::load_texture_image(const std::string& path)
@@ -462,8 +457,7 @@ int Scene::load_texture_image(const std::string& path)
     if(texture.pixels == nullptr)
         throw std::runtime_error("[Error] Could not read image file: " + path);
 
-    texture.colors = std::vector<Color>(texture.width * texture.height);
-    convert_bmp_to_vec3(texture.colors.data(), texture.pixels.get(), texture.width, texture.height);
+    texture.colors = convert_bmp_to_vec3(texture.pixels.get(), texture.width, texture.height);
     return textures.size() - 1;
 }
 
