@@ -3,119 +3,82 @@
 
 #include "Triangle.h"
 #include "Rectangle3D.h"
+#include "Sphere.h"
 #include "Primitive.h"
+#include "Mesh.h"
 
+#include "../util/BitmapImage.h"
+
+#include <sstream>
+#include <fstream>
 #include <vector>
 #include <cfloat>
 
-struct Mesh
-{
-    Mesh()
-    {
-        bv_mat = new Lambertian(Vec3({ 1.0, 0.0, 1.0 }));
-    }
+struct TextureImage {
+    uint32_t width;
+    uint32_t height;
+    uint32_t bytes_per_pixel;
 
-    void add_primitive(Primitive* p)
-    {
-        primitives.push_back(p);
-        calculate_bounding_faces();
-    }
+    std::string file_path;
+    std::vector<Color> colors;       // Floating-point color values used by raytracer
+    std::unique_ptr<uint8_t> pixels; // Actual file byte representation
 
-    // Note: any vertex transformation may invalidate the bounding box
-    void calculate_bounding_faces()
-    {
-        if(!bounding_volume_faces.empty())
-            bounding_volume_faces.clear();
-
-        // Step 1 : Determine near and far corners
-        //
-        // Since the only primitives are triangles do this for now,
-        // Include the bounds get() methods on the base primitive class later
-        Vec3 low_far = { Vec3({  FLT_MAX, FLT_MAX, FLT_MAX }) };
-        Vec3 up_near = { Vec3({ -FLT_MAX,-FLT_MAX,-FLT_MAX }) };
-
-        for(const Primitive* p : primitives)
-        {
-            BoundsDefinition defn = p->get_bounds();
-
-            for(std::size_t i = 0; i < 3; i++)
-            {
-                low_far[i] = std::min(low_far[i], defn.lower_far_corner[i]);
-                up_near[i] = std::max(up_near[i], defn.upper_near_corner[i]);
-            }
-        }
-
-        // Step 2 : Construct rectangular prism based on corners
-        bounding_volume_faces.push_back(new Rectangle3D(Vec3({ low_far.x(), low_far.y(), up_near.z() }),
-                                                        Vec3({ up_near.x(), low_far.y(), up_near.z() }),
-                                                        up_near,
-                                                        Vec3({ low_far.x(), up_near.y(), up_near.z() }),
-                                                        bv_mat));
-        bounding_volume_faces.push_back(new Rectangle3D(low_far,
-                                                        Vec3({ low_far.x(), low_far.y(), up_near.z() }),
-                                                        Vec3({ low_far.x(), up_near.y(), up_near.z() }),
-                                                        Vec3({ low_far.x(), up_near.y(), low_far.z() }),
-                                                        bv_mat));
-        bounding_volume_faces.push_back(new Rectangle3D(Vec3({ up_near.x(), low_far.y(), up_near.z() }),
-                                                        Vec3({ up_near.x(), up_near.y(), up_near.z() }),
-                                                        Vec3({ up_near.x(), up_near.y(), low_far.z() }),
-                                                        Vec3({ up_near.x(), low_far.y(), low_far.z() }),
-                                                        bv_mat));
-        bounding_volume_faces.push_back(new Rectangle3D(low_far,
-                                                        Vec3({ up_near.x(), low_far.y(), low_far.z() }),
-                                                        Vec3({ up_near.x(), up_near.y(), low_far.z() }),
-                                                        Vec3({ low_far.x(), up_near.y(), low_far.z() }),
-                                                        bv_mat));
-        bounding_volume_faces.push_back(new Rectangle3D(Vec3({ low_far.x(), up_near.y(), up_near.z() }),
-                                                        up_near,
-                                                        Vec3({ up_near.x(), up_near.y(), low_far.z() }),
-                                                        Vec3({ low_far.x(), up_near.y(), low_far.z() }),
-                                                        bv_mat));
-        bounding_volume_faces.push_back(new Rectangle3D(Vec3({ low_far.x(), low_far.y(), up_near.z() }),
-                                                        Vec3({ up_near.x(), low_far.y(), up_near.z() }),
-                                                        Vec3({ up_near.x(), low_far.y(), low_far.z() }),
-                                                        low_far,
-                                                        bv_mat));
-    }
-    std::string name;
-    std::vector<Material*  > materials;
-    std::vector<Primitive* > primitives;
-    std::vector<Primitive* > bounding_volume_faces;
-    Material* bv_mat;
-
-    ~Mesh()
-    {
-        delete bv_mat;
-        for(Primitive* p : bounding_volume_faces)
-            delete p;
-    }
+    TextureImage() = default;
 };
 
-struct Light 
-{
-    Vec3 position;    
-};
+void convert_bmp_to_vec3(Color*, uint8_t*, const uint32_t, const uint32_t);
 
 class Scene {
 public:
-    // Primary intersection function
+    Scene() = default;
+    Scene(const std::string& file_path);
+
+    Scene(const Scene&)            = delete;
+    Scene& operator=(const Scene&) = delete;
+
     bool anything_hit(const Ray&  r, 
                       const float t_min, 
                       const float t_max, 
                       HitRecord&  rec) const;
 
-    // Keep this for now for future testing
+    // TODO: keep this for now for future performance testing
     bool anything_hit_by_ray(const Ray&  r, 
                              const float t_min, 
                              const float t_max, 
                              HitRecord&  rec) const;
+    
+    // TODO: Deallocate any existing objects/values in the scene 
+    // object first
+    void read_from_file (const std::string& file_path);
+
     // Deallocate scene objects
     ~Scene();
 
-    Vec3 light_position;
-    std::vector<Primitive*> objects;
-    std::vector<Mesh*> meshes;
+    std::vector<Material*>   materials;
+    std::vector<Mesh*>       meshes;
+    std::vector<Primitive*>  objects;
+    std::vector<TextureImage> textures;
+
+    std::string name = "output";
+    uint32_t image_width;
+    uint32_t image_height;
+    uint32_t num_samples;
+    uint32_t num_threads;
+
+    Vec3 ambient = Vec3({ 0.0, 0.0, 0.0 });
+    
+    uint32_t num_render_threads;
+    
+    uint32_t max_recursion_depth = 32;
+    uint32_t tile_size = 64;
+    Vec3  camera_pos   = Vec3({ 0.0, 0.0,  0.0 });
+    Vec3  camera_look  = Vec3({ 0.0, 0.0, -1.0 });
+    float camera_fov   = 45.0f;
 private:
+    int  load_texture_image   (const std::string& path);
+    void read_scene_parameters(const std::string& line);
+    void read_scene_primitives(const std::string& line);
+    void read_scene_materials (const std::string& line);
 };
 
 #endif
