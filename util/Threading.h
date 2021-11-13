@@ -23,9 +23,11 @@ struct ImageRenderInfo
 
     uint32_t section_queue_front;
 
+    uint32_t total_sections = 0;
     uint32_t image_width;
     uint32_t image_height;
     uint32_t num_samples;
+    uint32_t num_finished_tiles = 0;
 
     Scene*  world;
     Camera* camera;
@@ -72,5 +74,6 @@ int  unlock_mutex             (RenderThreadControl* tcb);
 int  create_render_threads    (ThreadHandle*, const uint32_t, RenderThreadControl*);
 void initialize_mutex         (RenderThreadControl*);
 void join_render_threads      (ThreadHandle*, const uint32_t);
+void cleanup_threads          (RenderThreadControl*, ThreadHandle*, uint32_t);
 
 #endif

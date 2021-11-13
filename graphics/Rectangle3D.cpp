@@ -3,7 +3,7 @@
 bool Rectangle3D::hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
 {
     // Calculate the face normal
-    Vec3 normal = normalize(cross(B - A, D - A));
+    Vec3 normal = cross(B - A, D - A);
 
     // Check if ray intersects the supporting plane
     const float denom = -dot(normal, r.direction());
@@ -30,9 +30,11 @@ bool Rectangle3D::hit(const Ray& r, const float t_min, const float t_max, HitRec
     if(denom < 0)   // Change this later for non double-sided materials
         normal = -normal;
 
+    //rec.uv = Vec2({ Q.x() + 1, Q.z() + 1 });
+
     rec.t            = t;
     rec.point_at_t   = r.point_at_t(rec.t);
-    rec.normal       = normal;
+    rec.normal       = normalize(normal);
     rec.material_ptr = material;
     return true;
 }

@@ -1,6 +1,5 @@
 #include "Sphere.h"
 
-
 bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
 {
     Vec3 oc = r.origin() - center;
@@ -18,6 +17,15 @@ bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& 
             rec.point_at_t   = r.point_at_t(temp);
             rec.normal       = (rec.point_at_t - center) / radius;
             rec.material_ptr = material;
+            
+            // Convert cartesian -> spherical -> UV
+            double theta = atan2(-rec.normal.z(), rec.normal.x()) + k_PI;
+            double phi   = 0.5 + asin(rec.normal.y()) / k_PI;
+            rec.uv = Vec2({ theta / (2.0 * k_PI), phi });
+            
+            rec.tangent   = -normalize(cross(rec.normal, Vec3({ 0.0, 1.0, 0.0 })));
+            rec.bitangent =  normalize(cross(rec.normal, rec.tangent));
+
             return true;
         }
         temp = (-b + sqrt(discriminant)) / (a);
@@ -27,6 +35,15 @@ bool Sphere::hit(const Ray& r, const float t_min, const float t_max, HitRecord& 
             rec.point_at_t   = r.point_at_t(temp);
             rec.normal       = (rec.point_at_t - center) / radius;
             rec.material_ptr = material;
+
+            // Convert cartesian -> spherical -> UV
+            double theta = atan2(-rec.normal.z(), rec.normal.x()) + k_PI;
+            double phi   = 0.5 + asin(rec.normal.y()) / k_PI;
+            rec.uv = Vec2({ theta / (2.0 * k_PI), phi });
+
+            rec.tangent   = -normalize(cross(rec.normal, Vec3({ 0.0, 1.0, 0.0 })));
+            rec.bitangent =  normalize(cross(rec.normal, rec.tangent));
+
             return true;
         }
     }

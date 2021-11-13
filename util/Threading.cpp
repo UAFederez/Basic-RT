@@ -53,6 +53,12 @@ void join_render_threads(ThreadHandle*  threads,
         WaitForSingleObject(threads[i].handle, INFINITE);
 }
 
+void cleanup_threads(RenderThreadControl* tcb, ThreadHandle* threads, uint32_t NUM_THREADS)
+{
+    for(uint32_t i = 0; i < NUM_THREADS; i++)
+        CloseHandle(threads[i].handle);
+    CloseHandle(tcb->lock);
+}
 
 #else
 
@@ -102,4 +108,8 @@ void join_render_threads(ThreadHandle*  threads,
         pthread_join(threads[i].handle, NULL);
 }
 
+void cleanup_threads(RenderThreadControl* tcb, ThreadHandle* threads, uint32_t NUM_THREADS)
+{
+    // Do nothing
+}
 #endif
