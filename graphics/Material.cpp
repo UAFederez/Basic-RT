@@ -10,9 +10,9 @@ Vec3 Textured::emitted(const Vec2& uv) const
     if(!is_emissive)
         return Vec3({ 0.0, 0.0, 0.0 });
 
-    Vec2 texel   = Vec2({ std::floor(uv.u() * float(image_width  - 1)) , 
-                          std::floor(uv.v() * float(image_height - 1)) });
-    uint32_t idx = uint32_t(texel.v() * float(image_width) + texel.u());
+    Vec2 texel   = Vec2({ std::floor(uv.u() * scalar(image_width  - 1)) , 
+                          std::floor(uv.v() * scalar(image_height - 1)) });
+    uint32_t idx = uint32_t(texel.v() * scalar(image_width) + texel.u());
     return albedo_map[ idx ];
 }
 
@@ -22,27 +22,27 @@ bool Textured::scatter(const Ray& r, const HitRecord& rec, Vec3& attenuation, Ra
         return false;
 
     // Get texel (U, V) from the UV coordinates
-    Vec2 texel   = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
-                          std::floor(rec.uv.v() * float(image_height - 1)) });
-    uint32_t idx = uint32_t(texel.v() * float(image_width) + texel.u());
+    Vec2 texel   = Vec2({ std::floor(rec.uv.u() * scalar(image_width  - 1)), 
+                          std::floor(rec.uv.v() * scalar(image_height - 1)) });
+    uint32_t idx = uint32_t(texel.v() * scalar(image_width) + texel.u());
 
     // Bilinear Interpolation
-    Vec2 t1 = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
-                     std::floor(rec.uv.v() * float(image_height - 1)) });
-    Vec2 t2 = Vec2({ std::ceil (rec.uv.u() * float(image_width  - 1)), 
-                     std::floor(rec.uv.v() * float(image_height - 1)) });
-    Vec2 t3 = Vec2({ std::floor(rec.uv.u() * float(image_width  - 1)), 
-                     std::ceil (rec.uv.v() * float(image_height - 1)) });
-    Vec2 t4 = Vec2({ std::ceil (rec.uv.u() * float(image_width  - 1)), 
-                     std::ceil (rec.uv.v() * float(image_height - 1)) });
+    Vec2 t1 = Vec2({ std::floor(rec.uv.u() * scalar(image_width  - 1)), 
+                     std::floor(rec.uv.v() * scalar(image_height - 1)) });
+    Vec2 t2 = Vec2({ std::ceil (rec.uv.u() * scalar(image_width  - 1)), 
+                     std::floor(rec.uv.v() * scalar(image_height - 1)) });
+    Vec2 t3 = Vec2({ std::floor(rec.uv.u() * scalar(image_width  - 1)), 
+                     std::ceil (rec.uv.v() * scalar(image_height - 1)) });
+    Vec2 t4 = Vec2({ std::ceil (rec.uv.u() * scalar(image_width  - 1)), 
+                     std::ceil (rec.uv.v() * scalar(image_height - 1)) });
 
     int idx1 = clamp(int(t1.v() * image_width + t1.u() - 1), 0, int(image_width * image_height - 1));
     int idx2 = clamp(int(t2.v() * image_width + t2.u() + 1), 0, int(image_width * image_height - 1));
     int idx3 = clamp(int(t3.v() * image_width + t3.u() + image_width), 0, int(image_width * image_height - 1));
     int idx4 = clamp(int(t4.v() * image_width + t4.u() - image_width), 0, int(image_width * image_height - 1));
 
-    float x_interp = rec.uv.u() * image_width  - t1.u();
-    float y_interp = rec.uv.v() * image_height - t1.v();
+    scalar x_interp = rec.uv.u() * image_width  - t1.u();
+    scalar y_interp = rec.uv.v() * image_height - t1.v();
 
     Vec3 tex1 = albedo_map[idx1];
     Vec3 tex2 = albedo_map[idx2];
@@ -125,7 +125,7 @@ bool Metal::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, 
 bool Dielectric::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuation, Ray& scattered) const
 {
     Vec3  nrm = Vec3({0.0, 0.0, 0.0});
-    float ior = 0.0f;
+    scalar ior = 0.0f;
 
     if(dot(ray_in.direction(), rec.normal) > 0) 
     {
@@ -146,10 +146,10 @@ bool Dielectric::scatter(const Ray& ray_in, const HitRecord& rec, Vec3& attenuat
     else
     {
         // Calculate the Fresnel effect based on Schlick's approximation
-        float cosine          = dot(nrm, -normalize(ray_in.direction()));
-        float reflection_prob = schlick_approx(ior, cosine);
+        scalar cosine          = dot(nrm, -normalize(ray_in.direction()));
+        scalar reflection_prob = schlick_approx(ior, cosine);
 
-        if(random_float() < reflection_prob)
+        if(random_scalar() < reflection_prob)
             scattered = Ray(rec.point_at_t, reflected + fuzziness * random_in_unit_sphere());
         else
             scattered = Ray(rec.point_at_t, refracted + fuzziness * random_in_unit_sphere());

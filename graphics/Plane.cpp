@@ -1,16 +1,15 @@
 #include "Plane.h"
-
 #include <cfloat>
 
 bool Plane::hit(const Ray& r, 
-                const float t_min, 
-                const float t_max, 
+                const scalar t_min, 
+                const scalar t_max, 
                 HitRecord& rec) const
 {
-    const float denom = -dot(normal, r.direction());
+    const scalar denom = -dot(normal, r.direction());
     if(denom > 1e-6)
     {
-        const float t = dot(normal, r.origin() - origin) / denom;
+        const scalar t = dot(normal, r.origin() - origin) / denom;
         if(t_min < t && t < t_max)
         {
             rec.t            = t;

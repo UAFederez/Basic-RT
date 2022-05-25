@@ -1,13 +1,16 @@
+#pragma once
 #ifndef UTIL_GENERAL_H
 #define UTIL_GENERAL_H
 
 #include <chrono>
 #include <random>
 
-inline double random_float(const float min = 0.0, const float max = 1.0)
+using scalar = float;
+
+inline scalar random_scalar(const float min = 0.0, const float max = 1.0)
 {
     static thread_local std::mt19937_64 rng(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-    std::uniform_real_distribution<double> distribution(min, max);
+    std::uniform_real_distribution<scalar> distribution(min, max);
     return distribution(rng);
 }
 

@@ -74,9 +74,9 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
         {
             const uint32_t bounds_x = current_section->tile_x + current_section->tile_width;
             const uint32_t bounds_y = current_section->tile_y + current_section->tile_height;
-            const double   NS_DENOM = 1 / double(image->num_samples);
-            const double   IW_DENOM = 1 / double(image->image_width);
-            const double   IH_DENOM = 1 / double(image->image_height);
+            const scalar   NS_DENOM = 1 / scalar(image->num_samples);
+            const scalar   IW_DENOM = 1 / scalar(image->image_width);
+            const scalar   IH_DENOM = 1 / scalar(image->image_height);
 
             current_section->in_progress = true;
             for(uint32_t y = current_section->tile_y; y < bounds_y; y++ )
@@ -86,8 +86,8 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                     Vec3 pixel = {};
                     for(uint32_t i = 0; i < image->num_samples; i++)
                     {
-                        double u = double(x + random_float()) * IW_DENOM;
-                        double v = double(y + random_float()) * IH_DENOM;
+                        scalar u = scalar(x + random_scalar()) * IW_DENOM;
+                        scalar v = scalar(y + random_scalar()) * IH_DENOM;
 
                         Ray r  = image->camera->get_ray(u, v);
                         pixel += color(r, *image->world, 0);
@@ -133,10 +133,9 @@ int main(int argc, char** argv)
     Camera main_camera(scene.camera_pos, 
                        scene.camera_look, Vec3({ 0, 1.0, 0}),
                        scene.camera_fov,
-                       float(IMAGE_WIDTH) / float(IMAGE_HEIGHT));
+                       scalar(IMAGE_WIDTH) / scalar(IMAGE_HEIGHT));
 
     // Rendering thread parameters
-    const uint32_t MAX_THREADS  = 12;
     const uint32_t NUM_SAMPLES  = scene.num_samples;
     const uint32_t NUM_THREADS  = scene.num_threads;
 
@@ -160,6 +159,7 @@ int main(int argc, char** argv)
     printf("[INFO ]     Remainder tile width    %d\n", ADDITIONAL_W);
     printf("[INFO ]     Remainder tile height:  %d\n", ADDITIONAL_H);
     printf("[INFO ]     # of samples per pixel: %d\n", NUM_SAMPLES);
+    printf("[INFO ]     # of render threads:    %d\n", NUM_THREADS);
     printf("---------------------------------\n");
     
     RenderThreadControl thread_control;
@@ -270,7 +270,7 @@ int main(int argc, char** argv)
         if(num_finished == thread_control.image.sections.size() && !output_done)
         {
             auto time_render_end   = high_resolution_clock::now();
-            auto time_render_total = duration<double>(time_render_end - time_render_begin).count();
+            auto time_render_total = duration<scalar>(time_render_end - time_render_begin).count();
             std::cout << "The render took " << std::fixed << std::setprecision(2)
                       << time_render_total  << " seconds.\n";
             output_done = true;

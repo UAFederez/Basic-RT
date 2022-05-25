@@ -81,7 +81,7 @@ void Scene::read_scene_materials(const std::string& line)
     iss >> dummy;   
     if(line.find("LAMBERTIAN") == 0)
     {
-        float albedo_r, albedo_g, albedo_b;
+        scalar albedo_r, albedo_g, albedo_b;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b) )
             throw std::runtime_error("[Error] Please specify correct albedo RGB values");
@@ -96,7 +96,7 @@ void Scene::read_scene_materials(const std::string& line)
 
     } else if(line.find("DIELECTRIC") == 0)
     {
-        float albedo_r, albedo_g, albedo_b, ior;
+        scalar albedo_r, albedo_g, albedo_b, ior;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b >> ior) )
             throw std::runtime_error("[Error] Invalid dielectric parameters specified");
@@ -111,7 +111,7 @@ void Scene::read_scene_materials(const std::string& line)
         }
     } else if(line.find("METAL") == 0)
     {
-        float albedo_r, albedo_g, albedo_b, fuzziness;
+        scalar albedo_r, albedo_g, albedo_b, fuzziness;
 
         if( !(iss >> albedo_r >> albedo_g >> albedo_b >> fuzziness) )
             throw std::runtime_error("[Error] Invalid metal parameters specified");
@@ -126,7 +126,7 @@ void Scene::read_scene_materials(const std::string& line)
         }
     } else if(line.find("EMISSIVE") == 0)
     {
-        float color_r, color_g, color_b;
+        scalar color_r, color_g, color_b;
         if( !(iss >> color_r >> color_g >> color_b) )
             throw std::runtime_error("[Error] Invalid emissive parameters specified");
         else
@@ -224,7 +224,7 @@ void Scene::read_scene_primitives(const std::string& line)
     Mesh* mesh = new Mesh();
     if(line.find("p_SPHERE") == 0)
     {
-        float   center_x, center_y, center_z, radius;
+        scalar   center_x, center_y, center_z, radius;
         uint32_t material_idx;
         if( !(iss >> center_x >> center_y >> center_z >> radius >> material_idx) &&
              (radius < 0.0f || material_idx > materials.size()) ) 
@@ -246,7 +246,7 @@ void Scene::read_scene_primitives(const std::string& line)
 
     if(line.find("p_TRIANGLE") == 0)
     {
-        float   x1, y1, z1, x2, y2, z2, x3, y3, z3; 
+        scalar   x1, y1, z1, x2, y2, z2, x3, y3, z3; 
         uint32_t material_idx;
         if( !(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> x3 >> y3 >> z3 >> material_idx) ||
              (material_idx > materials.size()))
@@ -343,10 +343,10 @@ void Scene::read_scene_parameters(const std::string& line)
       
 }
 
-bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
+bool Scene::anything_hit(const Ray& r, const scalar t_min, const scalar t_max, HitRecord& rec) const
 {
     HitRecord temp_rec = {};
-    float closest      = t_max;
+    scalar closest      = t_max;
     bool hit_anything  = false;
 
     HitRecord bv_rec   = {};    // Not really useful since only hit/no hit matters
@@ -395,10 +395,10 @@ bool Scene::anything_hit(const Ray& r, const float t_min, const float t_max, Hit
 }
 
 // Keep this for now for future testing
-bool Scene::anything_hit_by_ray(const Ray&  r, const float t_min, const float t_max, HitRecord&  rec) const
+bool Scene::anything_hit_by_ray(const Ray&  r, const scalar t_min, const scalar t_max, HitRecord&  rec) const
 {
     HitRecord temp_rec = {};
-    float closest      = t_max;
+    scalar closest      = t_max;
     bool hit_anything  = false;
 
     for(const auto& m : meshes)
@@ -423,7 +423,7 @@ Scene::~Scene()
 
 std::vector<Color> convert_bmp_to_vec3(uint8_t* pixel_bytes, const uint32_t tex_width, const uint32_t tex_height)
 {
-    const float denom  = 1 / float(256);
+    const scalar denom  = 1 / scalar(256);
     uint8_t* curr_byte = pixel_bytes;
 
     std::vector<Color> colors = {};
@@ -433,15 +433,15 @@ std::vector<Color> convert_bmp_to_vec3(uint8_t* pixel_bytes, const uint32_t tex_
     {
         for(uint32_t x = 0; x < tex_width; x++)
         {
-            Vec3 a = Vec3({ float(*(curr_byte + 2)) * denom,
-                            float(*(curr_byte + 1)) * denom,
-                            float(*(curr_byte + 0)) * denom });
+            Vec3 a = Vec3({ scalar(*(curr_byte + 2)) * denom,
+                            scalar(*(curr_byte + 1)) * denom,
+                            scalar(*(curr_byte + 0)) * denom });
             colors.push_back(a);
 
             curr_byte += 3;
         }
     }
-    return std::move(colors);
+    return colors;
 }
 
 int Scene::load_texture_image(const std::string& path)

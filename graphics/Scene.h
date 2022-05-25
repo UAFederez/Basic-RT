@@ -37,14 +37,14 @@ public:
     Scene& operator=(const Scene&) = delete;
 
     bool anything_hit(const Ray&  r, 
-                      const float t_min, 
-                      const float t_max, 
+                      const scalar t_min, 
+                      const scalar t_max, 
                       HitRecord&  rec) const;
 
     // TODO: keep this for now for future performance testing
     bool anything_hit_by_ray(const Ray&  r, 
-                             const float t_min, 
-                             const float t_max, 
+                             const scalar t_min, 
+                             const scalar t_max, 
                              HitRecord&  rec) const;
     
     // TODO: Deallocate any existing objects/values in the scene 
@@ -73,7 +73,7 @@ public:
     uint32_t tile_size = 64;
     Vec3  camera_pos   = Vec3({ 0.0, 0.0,  0.0 });
     Vec3  camera_look  = Vec3({ 0.0, 0.0, -1.0 });
-    float camera_fov   = 45.0f;
+    scalar camera_fov   = 45.0f;
 private:
     int  load_texture_image   (const std::string& path);
     void read_scene_parameters(const std::string& line);

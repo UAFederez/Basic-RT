@@ -2,12 +2,12 @@
 Camera::Camera(const Vec3& lookfrom,
                const Vec3& look_at,
                const Vec3& up,
-               const float fov,
-               const float aspect)
+               const scalar fov,
+               const scalar aspect)
 {
-    float theta       = fov * k_PI / 180.0;
-    float half_height = tan(theta / 2.0);
-    float half_width  = aspect * half_height;
+    scalar theta       = fov * k_PI / 180.0;
+    scalar half_height = tan(theta / 2.0);
+    scalar half_width  = aspect * half_height;
 
     origin = lookfrom;
     Vec3 w = normalize(lookfrom - look_at);

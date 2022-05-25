@@ -1,40 +1,40 @@
 #include "Triangle.h"
 
 bool Triangle::hit(const Ray& r, 
-                   const float t_min, 
-                   const float t_max, 
+                   const scalar t_min, 
+                   const scalar t_max, 
                    HitRecord& rec) const
 {
     // Face normal
     Vec3 normal = cross(B - A, C - A);
 
     // Check if the point is within the supporting plane
-    const float denom = -dot(normal, r.direction());
+    const scalar denom = -dot(normal, r.direction());
 
     if(denom < 1e-6 && !material->is_double_sided)
         return false;
 
-    const float t = dot(normal, r.origin() - A) / denom;
+    const scalar t = dot(normal, r.origin() - A) / denom;
 
     if(t_min > t || t > t_max)
         return false;
 
     // Outside-inside test
     const Vec3  Q    = r.point_at_t(t);
-    const float CAB = dot(cross((B - A), (Q - A)), normal);
-    const float CCB = dot(cross((C - B), (Q - B)), normal);
-    const float CAC = dot(cross((A - C), (Q - C)), normal);
+    const scalar CAB = dot(cross((B - A), (Q - A)), normal);
+    const scalar CCB = dot(cross((C - B), (Q - B)), normal);
+    const scalar CAC = dot(cross((A - C), (Q - C)), normal);
 
     if(CAB < 0 || CCB < 0 || CAC < 0)
         return false;
 
     // Changed from cross(B - A, C - A) because it is the same
-    const float area  = dot(normal, normal);
-    const float darea = 1.0 / area;
+    const scalar area  = dot(normal, normal);
+    const scalar darea = 1.0 / area;
 
-    const float alpha = CCB * darea;
-    const float beta  = CAC * darea;
-    const float gamma = (1 - alpha - beta);
+    const scalar alpha = CCB * darea;
+    const scalar beta  = CAC * darea;
+    const scalar gamma = (1 - alpha - beta);
 
     // If vertex normals have been explicitly defined
     if(a_nrm.magnitude_squared() != 0 &&

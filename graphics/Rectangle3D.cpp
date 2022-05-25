@@ -1,28 +1,28 @@
 #include "Rectangle3D.h"
 
-bool Rectangle3D::hit(const Ray& r, const float t_min, const float t_max, HitRecord& rec) const
+bool Rectangle3D::hit(const Ray& r, const scalar t_min, const scalar t_max, HitRecord& rec) const
 {
     // Calculate the face normal
     Vec3 normal = cross(B - A, D - A);
 
     // Check if ray intersects the supporting plane
-    const float denom = -dot(normal, r.direction());
+    const scalar denom = -dot(normal, r.direction());
 
     // Is the ray almost parallel to surface of the plane 
     if(fabs(denom) < 1e-6)
         return false;
 
-    const float t = dot(normal, r.origin() - A) / denom;
+    const scalar t = dot(normal, r.origin() - A) / denom;
 
     if(t_min > t || t > t_max)
         return false;
 
     // Outside-inside test
     Vec3 Q = r.point_at_t(t);
-    float c1 = dot(cross((B - A), (Q - A)), normal);
-    float c2 = dot(cross((C - B), (Q - B)), normal);
-    float c3 = dot(cross((D - C), (Q - C)), normal);
-    float c4 = dot(cross((A - D), (Q - D)), normal);
+    scalar c1 = dot(cross((B - A), (Q - A)), normal);
+    scalar c2 = dot(cross((C - B), (Q - B)), normal);
+    scalar c3 = dot(cross((D - C), (Q - C)), normal);
+    scalar c4 = dot(cross((A - D), (Q - D)), normal);
 
     if(c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0)
         return false;

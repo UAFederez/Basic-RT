@@ -1,15 +1,14 @@
+#pragma once
 #ifndef MATH_VECTOR_H
 #define MATH_VECTOR_H
 
 #include <cassert>
 #include <array>
 #include <iostream>
-#include "../util/General.h"    // random_float()
+#include "../util/General.h"    // random_scalar()
 
 // For MSVC support
-const float k_PI = 3.14159265358979323846264338327950288;
-
-using scalar = float;
+const scalar k_PI = 3.14159265358979323846264338327950288;
 
 template <std::size_t N>
 class Vector {
@@ -19,7 +18,7 @@ class Vector {
 public:
     Vector()
     {
-        std::fill(comp, comp + N, 0);
+        std::fill(comp, comp + N, static_cast<scalar>(0));
     }
     Vector(const std::array<scalar, N>& val)
     {
@@ -208,7 +207,7 @@ inline Vector<N> operator*(const scalar f, const Vector<N>& v1)
 template <std::size_t N>
 inline Vector<N> operator/(const Vector<N>& v1, const scalar f)
 {
-    const float denom = 1.0 / f;
+    const scalar denom = 1.0 / f;
     return v1 * denom;
 }
 
@@ -232,8 +231,8 @@ inline Vector<N> reflect(const Vector<N>& vec, const Vector<N>& normal)
 
 inline Vec3 random_in_unit_sphere()
 {
-    const scalar rand_theta = random_float(0.0, 2 * k_PI);
-    const scalar rand_phi   = random_float(0.0, 2 * k_PI);
+    const scalar rand_theta = random_scalar(0.0, 2 * k_PI);
+    const scalar rand_phi   = random_scalar(0.0, 2 * k_PI);
     
     return Vec3({
         cosf(rand_theta) * sinf(rand_phi),
@@ -242,11 +241,11 @@ inline Vec3 random_in_unit_sphere()
     });
 }
 
-inline Vec3 refract(const Vec3& incident, const Vec3& normal, const float ior)
+inline Vec3 refract(const Vec3& incident, const Vec3& normal, const scalar ior)
 {
     Vec3 I      = normalize(incident);
-    float ndoti = dot(I, normal);
-    float disc  = 1 - (ior * ior) * (1 - (ndoti * ndoti));
+    scalar ndoti = dot(I, normal);
+    scalar disc  = 1 - (ior * ior) * (1 - (ndoti * ndoti));
     if(disc < 0)
         return Vec3({0.0, 0.0, 0.0});
 
