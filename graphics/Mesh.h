@@ -32,9 +32,9 @@ struct Mesh
 
     ~Mesh();
 
-    std::vector<Material*  > materials;
-    std::vector< Primitive* > primitives;
-    std::vector< Primitive* > bounding_volume_faces;
+    std::vector<Material* > materials;
+    std::vector<Primitive*> primitives;
+    std::vector<Primitive*> bounding_volume_faces;
     Material* bv_mat;
 };
 

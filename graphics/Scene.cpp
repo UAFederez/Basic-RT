@@ -36,7 +36,7 @@ void Scene::read_from_file(const std::string& file_path)
         "LAMBERTIAN", "METAL", "DIELECTRIC", "TEXTURED", "EMISSIVE"
     };
     const std::initializer_list<std::string> primitive_keywords = {
-        "p_SPHERE", "p_TRIANGLE", "p_RECTANGLE3D", 
+        "p_SPHERE", "p_TRIANGLE", "p_RECTANGLE3D", "OBJ"
     };
 
     while(std::getline(description_file, line))
@@ -64,8 +64,6 @@ void Scene::read_from_file(const std::string& file_path)
             else
                 read_scene_primitives(line);
         }
-
-        // TODO: Meshes
 
         // Camera parameters
     }
@@ -243,31 +241,134 @@ void Scene::read_scene_primitives(const std::string& line)
                                            materials[material_idx].get()));
         }
     }
-
-    if(line.find("p_TRIANGLE") == 0)
+    else if(line.find("p_TRIANGLE") == 0)
     {
         scalar   x1, y1, z1, x2, y2, z2, x3, y3, z3; 
         uint32_t material_idx;
-        if( !(iss >> x1 >> y1 >> z1 >> x2 >> y2 >> z2 >> x3 >> y3 >> z3 >> material_idx) ||
-             (material_idx > materials.size()))
-            throw std::runtime_error("[Error] Invalid triangle parameters specified");
-        {
-            std::printf("[INFO ] (Triangle) (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), Material: %d\n",
-                         x1, y1, z1, x2 ,y2, z2, x3, y3, z3, material_idx);
 
-            //TODO:
-            //mesh->add_primitive(new Triangle(Vec3({ x1, y1, z1 }), 
-            //                                 Vec3({ x2, y2, z2 }), 
-            //                                 Vec3({ x3, y3, z3 }), 
-            //                                 materials[material_idx]));
-        }
+        iss >> x1 >> y1 >> z1;  
+        iss >> x2 >> y2 >> z2; 
+        iss >> x3 >> y3 >> z3;
+        iss >> material_idx;
+
+        if(!iss || material_idx > materials.size())
+            throw std::runtime_error("[Error] Invalid triangle parameters specified");
+
+        std::printf("[INFO ] (Triangle) (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), Material: %d\n",
+                     x1, y1, z1, x2 ,y2, z2, x3, y3, z3, material_idx);
+
+        mesh->add_primitive(new Triangle(Vec3({ x1, y1, z1 }), 
+                                         Vec3({ x2, y2, z2 }), 
+                                         Vec3({ x3, y3, z3 }), 
+                                         materials[material_idx].get()));
     }
-    //TODO
-    if(line.find("p_RECTANGLE3D") == 0)
+    else if(line.find("p_RECTANGLE3D") == 0) //TODO
     {
         
     }
+    else if(line.find("OBJ") == 0)
+    {
+        scalar x1, y1, z1;
+        uint32_t material_idx;
+        std::string path;
+
+        iss >> material_idx;
+        iss >> x1 >> y1 >> z1;
+        iss >> path;
+
+        // Remove " "
+        path = path.substr(1, path.length() - 2);
+
+        Vec3 offset = Vec3({ x1, y1, z1 });
+        load_3d_obj_from_file(path, offset, mesh, materials[material_idx].get());
+    }
     meshes.push_back(std::unique_ptr<Mesh>(mesh));
+}
+
+void Scene::load_3d_obj_from_file(const std::string& path, const Vec3& offset, Mesh* mesh, Material* mat)
+{
+    std::ifstream input_file(path);
+    if(!input_file)
+        throw std::runtime_error("[Error] Could not find the file specified: " + path);
+    std::string line;
+
+    int num_poly = 0;
+
+    int tri_indices[3];
+    int verts_read_so_far = 0;
+
+    int nrm_indices[3];
+    int norms_read_so_far = 0;
+
+    std::vector<Vec3> vertices       = {};
+    std::vector<Vec3> vertex_normals = {};
+
+    std::string dummy_str;
+
+    // To consume unneeded fields for now
+    int  dummy; 
+    char slash;
+    while(std::getline(input_file, line))
+    {
+        if(line[0] == '#') 
+            continue;
+
+        std::istringstream istr(line);
+
+        // Reading a vertex
+        if(line.find("v ") == 0)
+        {
+            istr >> slash;
+            float x_pos, y_pos, z_pos;
+            istr >> x_pos >> y_pos >> z_pos;
+            vertices.push_back(0.25 * Vec3({ x_pos, y_pos, z_pos }));
+        }
+
+        if(line.find("vn ") == 0)
+        {
+            std::istringstream nrm(line.substr(2));
+
+            float x_nrm, y_nrm, z_nrm;
+            nrm >> x_nrm >> y_nrm >> z_nrm;
+            vertex_normals.push_back(normalize(Vec3({ x_nrm, y_nrm, z_nrm })));
+        }
+
+        // Reading a face
+        if(line.find("f ") == 0)
+        {
+            std::string field;
+            istr >> field;      // consume 'f'
+            while(verts_read_so_far < 3)
+            {
+                istr >> tri_indices[verts_read_so_far++];
+
+                if(!std::isspace(istr.peek()))
+                {
+                    istr >> slash;      // consume '/'
+                    istr >> slash;      // consume '/'
+                    istr >> nrm_indices[norms_read_so_far++];      // vertex normal index
+                }
+            }
+
+            if(verts_read_so_far == 3)
+            {
+                Triangle* tri = new Triangle(vertices[tri_indices[0] - 1] + offset,
+                                             vertices[tri_indices[1] - 1] + offset,
+                                             vertices[tri_indices[2] - 1] + offset,
+                                             mat);
+
+                tri->a_nrm = vertex_normals[nrm_indices[0] - 1];
+                tri->b_nrm = vertex_normals[nrm_indices[1] - 1];
+                tri->c_nrm = vertex_normals[nrm_indices[2] - 1];
+
+                mesh->add_primitive(tri);
+                num_poly++;
+
+                verts_read_so_far = 0;
+                norms_read_so_far = 0;
+            } 
+        }
+    }
 }
 
 void Scene::read_scene_parameters(const std::string& line)

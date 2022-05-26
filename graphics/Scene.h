@@ -79,6 +79,7 @@ private:
     void read_scene_parameters(const std::string& line);
     void read_scene_primitives(const std::string& line);
     void read_scene_materials (const std::string& line);
+    void load_3d_obj_from_file(const std::string& path, const Vec3& offset, Mesh* mesh, Material* mat);
 };
 
 #endif
