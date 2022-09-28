@@ -15,6 +15,8 @@ public:
         A(v0), 
         B(v1), 
         C(v2), 
+        BA(normalize(B-A)),
+        CA(normalize(C-A)),
         material(material)
     { }
 
@@ -29,6 +31,8 @@ public:
     Vec3 A;
     Vec3 B;
     Vec3 C;
+    Vec3 BA;
+    Vec3 CA;
     Material* material = nullptr;
 private:
 };
