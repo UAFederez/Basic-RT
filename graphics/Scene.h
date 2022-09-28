@@ -6,6 +6,7 @@
 #include "Sphere.h"
 #include "Primitive.h"
 #include "Mesh.h"
+#include "Plane.h"
 
 #include "../util/BitmapImage.h"
 

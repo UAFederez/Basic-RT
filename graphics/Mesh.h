@@ -17,11 +17,14 @@ struct Mesh
 {
     Mesh();
 
+    void reserve_n_primitives(size_t n);
+
     /**
      * Adds a primitive to the collection of primitives to render
      * Memory ownership must be transferred to the Mesh object
      **/
     void add_primitive(Primitive* p);
+    void add_primitive_no_recalc(Primitive* p);
 
     /**
      * Determines the axis-aligned bounding box, composed of 6

@@ -5,6 +5,11 @@ Mesh::Mesh()
     bv_mat = new Lambertian(Vec3({ 1.0, 0.0, 1.0 }));
 }
 
+void Mesh::add_primitive_no_recalc(Primitive* p)
+{
+    primitives.push_back(p);
+}
+
 void Mesh::add_primitive(Primitive* p)
 {
     primitives.push_back(p);
@@ -66,6 +71,11 @@ void Mesh::calculate_bounding_faces()
                 Vec3({ up_near.x(), low_far.y(), low_far.z() }),
                 low_far,
                 bv_mat));
+}
+
+void Mesh::reserve_n_primitives(size_t n)
+{
+    primitives.reserve(n);
 }
 
 Mesh::~Mesh()

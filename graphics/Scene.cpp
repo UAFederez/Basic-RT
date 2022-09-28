@@ -36,7 +36,7 @@ void Scene::read_from_file(const std::string& file_path)
         "LAMBERTIAN", "METAL", "DIELECTRIC", "TEXTURED", "EMISSIVE"
     };
     const std::initializer_list<std::string> primitive_keywords = {
-        "p_SPHERE", "p_TRIANGLE", "p_RECTANGLE3D", "OBJ"
+        "p_SPHERE", "p_TRIANGLE", "p_RECTANGLE3D", "OBJ", "p_PLANE",
     };
 
     while(std::getline(description_file, line))
@@ -120,7 +120,7 @@ void Scene::read_scene_materials(const std::string& line)
                       << "G: " << albedo_g << ", "
                       << "B: " << albedo_b << ", "
                       << "Fuzziness: " << fuzziness << '\n';
-            material = new Metal(Color({ 1.0, 1.0, 1.0 }), 0.01);
+            material = new Metal(Color({ albedo_r, albedo_g, albedo_b }), fuzziness);
         }
     } else if(line.find("EMISSIVE") == 0)
     {
@@ -262,9 +262,47 @@ void Scene::read_scene_primitives(const std::string& line)
                                          Vec3({ x3, y3, z3 }), 
                                          materials[material_idx].get()));
     }
-    else if(line.find("p_RECTANGLE3D") == 0) //TODO
+    else if(line.find("p_RECTANGLE3D") == 0)
     {
-        
+        scalar   x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4;
+        uint32_t material_idx;
+
+        iss >> x1 >> y1 >> z1;  
+        iss >> x2 >> y2 >> z2; 
+        iss >> x3 >> y3 >> z3;
+        iss >> x4 >> y4 >> z4;
+        iss >> material_idx;
+
+        if(!iss || material_idx > materials.size())
+            throw std::runtime_error("[Error] Invalid rectangle parameters specified");
+
+        std::printf("[INFO ] (Rectangle) (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f) Material: %d\n",
+                     x1, y1, z1, x2 ,y2, z2, x3, y3, z3, x4, y4, z4, material_idx);
+
+        mesh->add_primitive(new Rectangle3D(Vec3({ x1, y1, z1 }),
+                                            Vec3({ x2, y2, z2 }),
+                                            Vec3({ x3, y3, z3 }),
+                                            Vec3({ x4, y4, z4 }),
+                                            materials[material_idx].get()));
+    }
+    else if(line.find("p_PLANE") == 0)
+    {
+        scalar   ox, oy, oz, nx, ny, nz;
+        uint32_t material_idx;
+
+        iss >> ox >> oy >> oz;  
+        iss >> nx >> ny >> nz; 
+        iss >> material_idx;
+
+        if(!iss || material_idx > materials.size())
+            throw std::runtime_error("[Error] Invalid plane parameters specified");
+
+        std::printf("[INFO ] (Plane) (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f), Material: %d\n",
+                     ox, oy, oz, nx, ny, nz, material_idx);
+
+        mesh->add_primitive(new Plane(Vec3({ ox, oy, oz }),
+                                      Vec3({ nx, ny, nz }),
+                                      materials[material_idx].get()));
     }
     else if(line.find("OBJ") == 0)
     {
@@ -290,7 +328,21 @@ void Scene::load_3d_obj_from_file(const std::string& path, const Vec3& offset, M
     std::ifstream input_file(path);
     if(!input_file)
         throw std::runtime_error("[Error] Could not find the file specified: " + path);
+
+    int num_vertices = 0;
+    int num_normals  = 0;
+
     std::string line;
+
+    while(std::getline(input_file, line))
+    {
+        if(line.find("v ") == 0)  num_vertices++; 
+        if(line.find("vn ") == 0) num_normals++;
+    }
+    mesh->reserve_n_primitives(num_vertices / 3);
+
+    input_file.clear();
+    input_file.seekg(0);
 
     int num_poly = 0;
 
@@ -303,11 +355,16 @@ void Scene::load_3d_obj_from_file(const std::string& path, const Vec3& offset, M
     std::vector<Vec3> vertices       = {};
     std::vector<Vec3> vertex_normals = {};
 
+    vertices.reserve(num_vertices);
+    vertex_normals.reserve(num_normals);
+
     std::string dummy_str;
 
     // To consume unneeded fields for now
-    int  dummy; 
     char slash;
+
+    std::cout << "Reading obj file: " << path << '\n';
+    int num_lines = 0;
     while(std::getline(input_file, line))
     {
         if(line[0] == '#') 
@@ -361,14 +418,16 @@ void Scene::load_3d_obj_from_file(const std::string& path, const Vec3& offset, M
                 tri->b_nrm = vertex_normals[nrm_indices[1] - 1];
                 tri->c_nrm = vertex_normals[nrm_indices[2] - 1];
 
-                mesh->add_primitive(tri);
+                mesh->add_primitive_no_recalc(tri);
                 num_poly++;
 
                 verts_read_so_far = 0;
                 norms_read_so_far = 0;
             } 
         }
+        num_lines++;
     }
+    mesh->calculate_bounding_faces();
 }
 
 void Scene::read_scene_parameters(const std::string& line)
