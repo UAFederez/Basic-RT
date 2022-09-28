@@ -1,4 +1,11 @@
 # Basic Raytracer
+
+## Demo Render
+<div>
+    <p>The renderer is multithreaded, with a live display showing each region of the image being rendered by an individual thread. The number of threads used to render the image can be specified in the scene description file. Multiple passes correspond to each sample specified in the number of samples per pixel.</p>
+    <img src="demo/render.gif" width="100%">
+</div>
+
 ## Demo Images
 <div>
     <p><i>HDR background and Image-based lighting</i></p>
