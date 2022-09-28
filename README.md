@@ -1,4 +1,27 @@
 # Basic Raytracer
+## Demo Images
+<div>
+    <p><i>HDR background and Image-based lighting</i></p>
+    <img src="demo/Scene01.bmp">
+</div>
+
+<div>
+    <p><i>3D model with diffuse, metallic and refractive materials</i></p>
+    <img src="demo/64samples.bmp">
+</div>
+
+<div>
+    <p><i>Light emission, reflection and refraction</i></p>
+    <img src="demo/Scene03.bmp">
+</div>
+
+<div>
+    <small>Assets sources: </small>
+    <small><a href="https://www.cgtrader.com/free-3d-print-models/miniatures/figurines/superman-3d-printable-bust">3D model source</a></small>
+    <span><small>&#8226;</small></span>
+    <small><a href="https://ambientcg.com/view?id=IndoorHDRI001">HDR background</a></small>
+</div>
+
 ## Scene Description File
 The raytracer supports loading assets and generating primitive 3D objects based on a scene description
 text file
@@ -38,25 +61,3 @@ MAX_RDEPTH  50
 CAM_POS  -0.7 -1.0 5.0
 CAM_LOOK 0.05 -0.3 0.0
 ```
-## Demo Images
-<div>
-    <p><i>HDR background and Image-based lighting</i></p>
-    <img src="demo/Scene01.bmp">
-</div>
-
-<div>
-    <p><i>3D model with diffuse, metallic and refractive materials</i></p>
-    <img src="demo/Scene02.bmp">
-</div>
-
-<div>
-    <p><i>Light emission, reflection and refraction</i></p>
-    <img src="demo/Scene03.bmp">
-</div>
-
-<div>
-    <small>Assets sources: </small>
-    <small><a href="https://www.cgtrader.com/free-3d-print-models/miniatures/figurines/superman-3d-printable-bust">3D model source</a></small>
-    <span><small>&#8226;</small></span>
-    <small><a href="https://ambientcg.com/view?id=IndoorHDRI001">HDR background</a></small>
-</div>
