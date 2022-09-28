@@ -66,6 +66,8 @@ struct RenderThreadControl
 {
     ImageRenderInfo image;
     pthread_mutex_t lock;
+
+    std::vector<int> thread_stats;
 };
 
 void* pthread_render_tiles(void* param);

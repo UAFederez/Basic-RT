@@ -108,8 +108,8 @@ void join_render_threads(ThreadHandle*  threads,
         pthread_join(threads[i].handle, NULL);
 }
 
-void cleanup_threads(RenderThreadControl* tcb, ThreadHandle* threads, uint32_t NUM_THREADS)
-{
-    // Do nothing
+void cleanup_threads(RenderThreadControl*, ThreadHandle*, uint32_t) 
+{ 
+    // Do nothing 
 }
 #endif
