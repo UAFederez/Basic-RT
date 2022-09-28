@@ -6,7 +6,7 @@ bool Triangle::hit(const Ray& r,
                    HitRecord& rec) const
 {
     // Face normal
-    Vec3 normal = cross(B - A, C - A);
+    Vec3 normal = cross(BA, CA);
 
     // Check if the point is within the supporting plane
     const scalar denom = -dot(normal, r.direction());
@@ -48,7 +48,7 @@ bool Triangle::hit(const Ray& r,
     rec.uv           = Vec2({ beta, gamma });
     rec.t            = t;
     rec.point_at_t   = r.point_at_t(rec.t);
-    rec.normal       = normalize(normal);
+    rec.normal       = normal;
     rec.material_ptr = material;
     return true;
 }

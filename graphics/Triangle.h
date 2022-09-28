@@ -15,8 +15,8 @@ public:
         A(v0), 
         B(v1), 
         C(v2), 
-        BA(normalize(B-A)),
-        CA(normalize(C-A)),
+        BA(normalize(B - A)),
+        CA(normalize(C - A)),
         material(material)
     { }
 
