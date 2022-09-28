@@ -49,7 +49,11 @@ Color color(const Ray& r, const Scene& world, uint32_t depth)
 
         return emitted;
     }
-    return world.ambient;
+    // Comment for ambient background
+    Vector unit_dir = normalize(r.direction());
+    float t = 0.5 * (unit_dir.y() + 1.0f);
+    return (1.0 - t) * Vec3({1.0, 1.0, 1.0}) + t * Vec3({0.5, 0.7, 1.0});
+    //return world.ambient;
 }
 
 int thread_render_image_tiles(RenderThreadControl* tcb)
@@ -84,16 +88,13 @@ int thread_render_image_tiles(RenderThreadControl* tcb)
                 for(uint32_t x = current_section->tile_x; x < bounds_x; x++ )
                 {
                     Vec3 pixel = {};
-                    for(uint32_t i = 0; i < image->num_samples; i++)
-                    {
-                        scalar u = scalar(x + random_scalar()) * IW_DENOM;
-                        scalar v = scalar(y + random_scalar()) * IH_DENOM;
+                    scalar u = scalar(x + random_scalar()) * IW_DENOM;
+                    scalar v = scalar(y + random_scalar()) * IH_DENOM;
 
-                        Ray r  = image->camera->get_ray(u, v);
-                        pixel += color(r, *image->world, 0);
-                    }
+                    Ray r  = image->camera->get_ray(u, v);
+                    pixel += color(r, *image->world, 0);
                     pixel *= NS_DENOM;
-                    image->pixels[y * image->image_width + x] = pixel; 
+                    image->pixels[y * image->image_width + x] += pixel; 
                 }
             }
             current_section->is_finished = true;
@@ -174,24 +175,27 @@ int main(int argc, char** argv)
     thread_control.thread_stats       = std::vector<int>(scene.num_threads);
 
     // Prepare the work units that must be performed by the threads
-    for(uint32_t tile_y = 0; tile_y < HEIGHT_IN_TILES; tile_y++)
+    for(uint32_t sample = 0; sample < scene.num_samples; sample++)
     {
-        for(uint32_t tile_x = 0; tile_x < WIDTH_IN_TILES; tile_x++)
+        for(uint32_t tile_y = 0; tile_y < HEIGHT_IN_TILES; tile_y++)
         {
-            SectionRenderInfo section = {};
-            section.tile_width  = TILE_WIDTH;
-            section.tile_height = TILE_HEIGHT;
-            section.tile_x      = tile_x * TILE_WIDTH;
-            section.tile_y      = tile_y * TILE_HEIGHT;
-            section.is_finished = false;
-            section.in_progress = false;
+            for(uint32_t tile_x = 0; tile_x < WIDTH_IN_TILES; tile_x++)
+            {
+                SectionRenderInfo section = {};
+                section.tile_width  = TILE_WIDTH;
+                section.tile_height = TILE_HEIGHT;
+                section.tile_x      = tile_x * TILE_WIDTH;
+                section.tile_y      = tile_y * TILE_HEIGHT;
+                section.is_finished = false;
+                section.in_progress = false;
 
-            if(tile_x == WIDTH_IN_TILES - 1)
-                section.tile_width  += ADDITIONAL_W;
-            if(tile_y == HEIGHT_IN_TILES - 1)
-                section.tile_height += ADDITIONAL_H;
+                if(tile_x == WIDTH_IN_TILES - 1)
+                    section.tile_width  += ADDITIONAL_W;
+                if(tile_y == HEIGHT_IN_TILES - 1)
+                    section.tile_height += ADDITIONAL_H;
 
-            thread_control.image.sections.push_back(section);
+                thread_control.image.sections.push_back(section);
+            }
         }
     }
     thread_control.image.total_sections = thread_control.image.sections.size();
@@ -200,7 +204,6 @@ int main(int argc, char** argv)
     using std::chrono::duration;
     using std::chrono::seconds;
 
-    auto time_begin = high_resolution_clock::now();
     std::cout << "[INFO   ] Creating threads...\n";
 
     // Initialize threads
